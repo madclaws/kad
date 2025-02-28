@@ -18,8 +18,14 @@ defmodule Utils do
 
   When converting the size becomes double because for each byte is represented with 2 hexdecimal digits
   """
-  @spec to_hex(String.t()) :: binary()
+  @spec to_hex(binary()) :: binary()
   def to_hex(node_id) do
-    Base.encode16(node_id, case: :lower)
+    :binary.encode_hex(node_id)
+  end
+
+  @spec find_distance(binary(), binary()) :: integer()
+  def find_distance(id1, id2) do
+    :crypto.exor(id1, id2)
+    |> :binary.decode_unsigned(:little)
   end
 end
