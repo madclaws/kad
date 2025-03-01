@@ -1,7 +1,6 @@
 defmodule KademliaTest do
   use ExUnit.Case
   doctest Kademlia
-  @k 2
 
   @tag :clos
   test "closest k nodes from the routing table" do
@@ -13,11 +12,11 @@ defmodule KademliaTest do
 
     id = 3
 
-    Map.values(table)
-    |> List.flatten()
-    |> Enum.sort_by(fn {a, _} ->
-      Bitwise.bxor(a, id)
-    end)
-    |> IO.inspect()
+    assert [{2, _}, {0, _}, {7, _}, {6, _}] =
+             Map.values(table)
+             |> List.flatten()
+             |> Enum.sort_by(fn {a, _} ->
+               Bitwise.bxor(a, id)
+             end)
   end
 end

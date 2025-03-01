@@ -7,6 +7,7 @@ defmodule Kademlia.Node do
   key will be hashed to 6-bit space..., for now lets keys be a number which is explicitly inside 6-bit space while saving..
 
   """
+  alias ElixirSense.Log
 
   @default_k 4
   @default_bitspace 6
@@ -32,12 +33,16 @@ defmodule Kademlia.Node do
     GenServer.call(pid, {:put, key, val}, @timeout)
   end
 
-  def find_comp(pid, id) do
-    GenServer.call(pid, {:find_comp, id}, @timeout)
+  def find_node(pid, id) do
+    GenServer.call(pid, {:find_node, id}, @timeout)
+  end
+
+  def ping(pid, receiver) do
+    GenServer.cast(pid, {:ping, receiver})
   end
 
   def get_id(pid) do
-    :sys.get_state(pid).info |> elem(1)
+    :sys.get_state(pid).info |> elem(0)
   end
 
   def get_routing_table(pid) do
@@ -50,7 +55,7 @@ defmodule Kademlia.Node do
   end
 
   def handle_call({:get, key}, {_caller_pid, _}, state) do
-    Logger.info("NODE #{elem(state.info, 1)}:: GET operation for KEY #{key}")
+    Logger.info("NODE #{__MODULE__.get_id(self())}:: GET operation for KEY #{key}")
     current_bitspace = Application.get_env(:kademlia, :bitspace, @default_bitspace)
 
     cond do
@@ -66,7 +71,7 @@ defmodule Kademlia.Node do
   end
 
   def handle_call({:put, key, val}, {_caller_pid, _}, state) do
-    Logger.info("NODE #{elem(state.info, 1)}:: PUT operation for KEY #{key} VAL #{val}")
+    Logger.info("NODE #{__MODULE__.get_id(self())}:: PUT operation for KEY #{key} VAL #{val}")
     current_bitspace = Application.get_env(:kademlia, :bitspace, @default_bitspace)
 
     if key > current_bitspace do
@@ -86,7 +91,7 @@ defmodule Kademlia.Node do
     end
   end
 
-  def handle_call({:find_comp, id}, _from, state) do
+  def handle_call({:find_node, id}, _from, state) do
     # finding the closest nodes to id from the routing table
     closest_nodes =
       Map.values(state.routing_table)
@@ -99,8 +104,22 @@ defmodule Kademlia.Node do
     {:reply, closest_nodes, state}
   end
 
-  def handle_info({:ping, caller}, state) do
-    Process.send(caller, :pong, [])
+  def handle_cast({:ping, receiver}, state) do
+    Process.send(receiver, {:ping, state.info}, [])
+    {:noreply, state}
+  end
+
+  # Sends `pong` on receiving a `ping` from a node
+  def handle_info({:ping, {caller_id, caller_pid}}, state) do
+    Logger.info("NODE #{elem(state.info, 0)}:: Got ping from #{caller_id}")
+    Process.send(caller_pid, {:pong, state.info}, [])
+    {:noreply, state}
+  end
+
+  # receives `pong` and try to update the k-bucket
+  def handle_info({:pong, {caller_id, _caller_pid}}, state) do
+    Logger.info("NODE #{elem(state.info, 0)}:: Got pong from #{caller_id}")
+    # try_update_k_bucket
     {:noreply, state}
   end
 
@@ -126,7 +145,7 @@ defmodule Kademlia.Node do
       k: Application.get_env(:kademlia, :k, @default_k),
       # alpha: max concurrency lookups
       a: Application.get_env(:kademlia, :a, @default_a),
-      info: {self(), node_id},
+      info: {node_id, self()},
       hash_map: %{},
       routing_table: routing_table
     }
