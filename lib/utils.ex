@@ -14,6 +14,21 @@ defmodule Utils do
   end
 
   @doc """
+  Generate an non-neg integer between a given range 0 to 2^bitspace
+  """
+  @spec generate_node_id(non_neg_integer()) :: non_neg_integer()
+  def generate_node_id(bitspace) do
+    total_numbers =
+      :math.pow(2, bitspace)
+      |> Float.to_string()
+      |> String.split(".")
+      |> List.first()
+      |> String.to_integer()
+
+    Enum.random(1..(total_numbers - 1))
+  end
+
+  @doc """
   Convert the 20byte nodeId to hex
 
   When converting the size becomes double because for each byte is represented with 2 hexdecimal digits
@@ -28,4 +43,19 @@ defmodule Utils do
     :crypto.exor(id1, id2)
     |> :binary.decode_unsigned(:little)
   end
+
+  @spec create_routing_table(non_neg_integer(), non_neg_integer()) :: map()
+  def create_routing_table(node_id, bitspace) do
+    node_id = Integer.to_string(node_id, 2)
+    node_id_bin = String.duplicate("0", bitspace - String.length(node_id)) <> node_id
+    Enum.reduce(1..bitspace, %{}, fn bit, table ->
+      prefix = String.slice(node_id_bin, 0, bit)
+
+      prefix = String.replace_suffix(prefix, String.last(prefix), flip_bit(String.last(prefix)))
+      Map.put(table, prefix, [])
+    end)
+  end
+
+  defp flip_bit("0"), do: "1"
+  defp flip_bit("1"), do: "0"
 end
