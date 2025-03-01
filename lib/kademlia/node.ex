@@ -88,7 +88,7 @@ defmodule Kademlia.Node do
 
   def handle_call({:find_comp, id}, _from, state) do
     # finding the closest nodes to id from the routing table
-    closest_ndoes =
+    closest_nodes =
       Map.values(state.routing_table)
       |> List.flatten()
       |> Enum.sort_by(fn {node_id, _} ->
@@ -96,7 +96,12 @@ defmodule Kademlia.Node do
       end)
       |> Enum.slice(0..state.k)
 
-    {:reply, closest_ndoes, state}
+    {:reply, closest_nodes, state}
+  end
+
+  def handle_info({:ping, caller}, state) do
+    Process.send(caller, :pong, [])
+    {:noreply, state}
   end
 
   @spec create_initial_state(Keyword.t()) :: map()
