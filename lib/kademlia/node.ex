@@ -114,7 +114,7 @@ defmodule Kademlia.Node do
   """
   @spec update_k_buckets({non_neg_integer(), pid()}, map()) :: map()
   def update_k_buckets({node_id, _pid} = node_info, state) do
-    node_id_bin = Integer.to_string(node_id, 2)
+    node_id_bin = Integer.to_string(node_id, 2) |> Utils.format_bin_id(@default_bitspace)
     # find the bucket
     common_prefix =
       Map.keys(state.routing_table)
@@ -155,10 +155,15 @@ defmodule Kademlia.Node do
     bitspace = Application.get_env(:kademlia, :bitspace, @default_bitspace)
     # for now let the bootstrap node has the 0 id.
     node_id =
-      if Keyword.get(args, :is_bootstrap, false) do
-        0
-      else
-        Utils.generate_node_id(bitspace)
+      cond do
+        Keyword.get(args, :is_bootstrap, false) ->
+          0
+
+        not is_nil(Keyword.get(args, :node_id, nil)) ->
+          Keyword.get(args, :node_id)
+
+        true ->
+          Utils.generate_node_id(bitspace)
       end
 
     Logger.info(

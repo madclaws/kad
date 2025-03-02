@@ -51,7 +51,7 @@ defmodule Utils do
   @spec create_routing_table(non_neg_integer(), non_neg_integer()) :: map()
   def create_routing_table(node_id, bitspace) do
     node_id = Integer.to_string(node_id, 2)
-    node_id_bin = String.duplicate("0", bitspace - String.length(node_id)) <> node_id
+    node_id_bin = format_bin_id(node_id, bitspace)
 
     Enum.reduce(1..bitspace, %{}, fn bit, table ->
       prefix = String.slice(node_id_bin, 0, bit)
@@ -59,6 +59,10 @@ defmodule Utils do
       prefix = String.replace_suffix(prefix, String.last(prefix), flip_bit(String.last(prefix)))
       Map.put(table, prefix, [])
     end)
+  end
+
+  def format_bin_id(node_id_bin, bitspace) do
+    String.duplicate("0", bitspace - String.length(node_id_bin)) <> node_id_bin
   end
 
   defp flip_bit("0"), do: "1"
