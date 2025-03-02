@@ -33,6 +33,12 @@ defmodule NodeTest do
   test "Check ping/ping" do
     {:ok, pid} = Node.start_link(is_bootstrap: true)
     {:ok, pid2} = Node.start_link()
-    Node.ping(pid, pid2)
+    assert :pong == Node.ping(:sys.get_state(pid).info, pid2)
+  end
+
+  test "updating k-buckets" do
+    {:ok, pid} = Node.start_link(is_bootstrap: true)
+    {:ok, pid2} = Node.start_link()
+    assert :pong == Node.ping(:sys.get_state(pid).info, pid2)
   end
 end

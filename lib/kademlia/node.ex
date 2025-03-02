@@ -7,7 +7,7 @@ defmodule Kademlia.Node do
   key will be hashed to 6-bit space..., for now lets keys be a number which is explicitly inside 6-bit space while saving..
 
   """
-  alias ElixirSense.Log
+  alias Kademlia.Node
 
   @default_k 4
   @default_bitspace 6
@@ -37,8 +37,8 @@ defmodule Kademlia.Node do
     GenServer.call(pid, {:find_node, id}, @timeout)
   end
 
-  def ping(pid, receiver) do
-    GenServer.cast(pid, {:ping, receiver})
+  def ping(sender_info, receiver) do
+    GenServer.call(receiver, {:ping, sender_info}, @timeout)
   end
 
   def get_id(pid) do
@@ -104,23 +104,50 @@ defmodule Kademlia.Node do
     {:reply, closest_nodes, state}
   end
 
-  def handle_cast({:ping, receiver}, state) do
-    Process.send(receiver, {:ping, state.info}, [])
-    {:noreply, state}
+  def handle_call({:ping, {send_id, _send_pid}}, _, state) do
+    Logger.info("NODE #{elem(state.info, 0)}:: Got ping from #{send_id}")
+    {:reply, :pong, state}
   end
 
-  # Sends `pong` on receiving a `ping` from a node
-  def handle_info({:ping, {caller_id, caller_pid}}, state) do
-    Logger.info("NODE #{elem(state.info, 0)}:: Got ping from #{caller_id}")
-    Process.send(caller_pid, {:pong, state.info}, [])
-    {:noreply, state}
-  end
+  @doc """
+  On get to know about a node, we try to add that node in our k-buckets
+  """
+  @spec update_k_buckets({non_neg_integer(), pid()}, map()) :: map()
+  def update_k_buckets({node_id, _pid} = node_info, state) do
+    node_id_bin = Integer.to_string(node_id, 2)
+    # find the bucket
+    common_prefix =
+      Map.keys(state.routing_table)
+      |> Enum.find(fn k -> String.starts_with?(node_id_bin, k) end)
 
-  # receives `pong` and try to update the k-bucket
-  def handle_info({:pong, {caller_id, _caller_pid}}, state) do
-    Logger.info("NODE #{elem(state.info, 0)}:: Got pong from #{caller_id}")
-    # try_update_k_bucket
-    {:noreply, state}
+    bucket = state.routing_table[common_prefix]
+    node_index = Enum.find_index(bucket, &(elem(&1, 0) == node_id))
+
+    bucket_new =
+      cond do
+        node_index != nil ->
+          # node is already in the bucket, lets move to the tail
+          bucket = List.delete_at(bucket, node_index)
+          bucket ++ [node_info]
+
+        node_index == nil and length(bucket) < state.k ->
+          # node not in bucket and bucket length less than K
+          bucket ++ [node_info]
+
+        true ->
+          [lru | _] = bucket
+
+          if Node.ping(state.node_info, elem(lru, 1)) == :pong do
+            bucket = List.delete_at(bucket, 0)
+            bucket ++ [lru]
+          else
+            bucket = List.delete_at(bucket, 0)
+            bucket ++ [node_info]
+          end
+      end
+
+    routing_table = Map.put(state.routing_table, common_prefix, bucket_new)
+    Map.put(state, :routing_table, routing_table)
   end
 
   @spec create_initial_state(Keyword.t()) :: map()
