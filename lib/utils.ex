@@ -10,7 +10,11 @@ defmodule Utils do
     |> to_string()
     |> then(&:crypto.hash(:sha, &1))
 
-    # |> Base.encode16(case: :lower)
+    #  use :binary.decode_unsigned() to convert to number
+    # then can be used for creating route table.
+
+    # hex can maybe used for readability - use :binary.encode_hex()
+
   end
 
   @doc """

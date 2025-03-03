@@ -38,7 +38,7 @@ defmodule Kademlia.Node do
   end
 
   def ping(sender_info, receiver) do
-    GenServer.call(receiver, {:ping, sender_info}, @timeout)
+    GenServer.call(receiver, {:ping, sender_info})
   end
 
   def get_id(pid) do
@@ -92,6 +92,7 @@ defmodule Kademlia.Node do
   end
 
   def handle_call({:find_node, id}, _from, state) do
+    # TODO: This should be recursive from a caller point of view.
     # finding the closest nodes to id from the routing table
     closest_nodes =
       Map.values(state.routing_table)
@@ -136,8 +137,10 @@ defmodule Kademlia.Node do
 
         true ->
           [lru | _] = bucket
+          IO.inspect(elem(lru, 1))
+          Node.ping(state.info, elem(lru, 1)) |> IO.inspect()
 
-          if Node.ping(state.node_info, elem(lru, 1)) == :pong do
+          if Node.ping(state.info, elem(lru, 1)) == :pong do
             bucket = List.delete_at(bucket, 0)
             bucket ++ [lru]
           else
