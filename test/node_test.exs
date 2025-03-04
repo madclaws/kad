@@ -77,27 +77,34 @@ defmodule NodeTest do
   end
 
   @tag :k2
-  test "updating k-buckets with K=2, discarding the lru if ping fails" do
-    Application.put_env(:kademlia, :k, 2)
+  test "updating k-buckets with K=1, discarding the lru if ping fails" do
+    Application.put_env(:kademlia, :k, 1)
     {:ok, pid} = Node.start_link(is_bootstrap: true)
     {:ok, pid2} = Node.start_link(node_id: 2)
     # assert :pong == Node.ping(:sys.get_state(pid).info, pid2)
     node_a_state = :sys.get_state(pid)
     node_b_state = :sys.get_state(pid2)
 
-    state = Node.update_k_buckets(node_b_state.info, node_a_state)
-    assert [{2, _}] = state.routing_table["00001"]
+    node_a_state = Node.update_k_buckets(node_b_state.info, node_a_state)
+    assert [{2, _}] = node_a_state.routing_table["00001"]
 
     {:ok, pid3} = Node.start_link(node_id: 3)
     node_c_state = :sys.get_state(pid3)
-    IO.inspect(state)
     Process.exit(pid2, :normal)
-    Process.sleep(1000)
-    state = Node.update_k_buckets(node_c_state.info, state)
-    IO.inspect(state)
-    # Making sure if Ping to node_2 works then we append the new node
-    assert length(state.routing_table["00001"]) == 2
-    # IO.inspect(state.routing_table)
-    assert [{2, _}, {3, _}] = state.routing_table["00001"]
+    Process.sleep(5000)
+    node_a_state = Node.update_k_buckets(node_c_state.info, node_a_state)
+    IO.inspect(node_a_state)
+    # If ping doesnt work node 2 should get evicted.
+    assert length(node_a_state.routing_table["00001"]) == 2
+    # IO.inspect(node_a_state.routing_table)
+    assert [{2, _}, {3, _}] = node_a_state.routing_table["00001"]
+    # IO.inspect(node_a_state)
+
+    # {:ok, pid4} = Node.start_link(node_id: 4)
+    # node_d_state = :sys.get_state(pid4)
+    # Process.exit(pid2, :normal)
+    # node_a_state = Node.update_k_buckets(node_d_state.info, node_a_state)
+    # IO.inspect(node_a_state)
+
   end
 end

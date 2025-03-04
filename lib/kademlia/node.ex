@@ -137,10 +137,9 @@ defmodule Kademlia.Node do
 
         true ->
           [lru | _] = bucket
-          IO.inspect(elem(lru, 1))
-          Node.ping(state.info, elem(lru, 1)) |> IO.inspect()
-
-          if Node.ping(state.info, elem(lru, 1)) == :pong do
+          IO.inspect(elem(lru, 0))
+          # :c.pid(0, 12, 0)
+          if Process.alive?(elem(lru, 1)) do
             bucket = List.delete_at(bucket, 0)
             bucket ++ [lru]
           else
