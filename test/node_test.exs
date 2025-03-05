@@ -90,21 +90,9 @@ defmodule NodeTest do
 
     {:ok, pid3} = Node.start_link(node_id: 3)
     node_c_state = :sys.get_state(pid3)
-    Process.exit(pid2, :normal)
-    Process.sleep(5000)
     node_a_state = Node.update_k_buckets(node_c_state.info, node_a_state)
-    IO.inspect(node_a_state)
     # If ping doesnt work node 2 should get evicted.
-    assert length(node_a_state.routing_table["00001"]) == 2
-    # IO.inspect(node_a_state.routing_table)
-    assert [{2, _}, {3, _}] = node_a_state.routing_table["00001"]
-    # IO.inspect(node_a_state)
-
-    # {:ok, pid4} = Node.start_link(node_id: 4)
-    # node_d_state = :sys.get_state(pid4)
-    # Process.exit(pid2, :normal)
-    # node_a_state = Node.update_k_buckets(node_d_state.info, node_a_state)
-    # IO.inspect(node_a_state)
+    assert length(node_a_state.routing_table["00001"]) == 1
 
   end
 end

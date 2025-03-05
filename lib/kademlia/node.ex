@@ -8,7 +8,6 @@ defmodule Kademlia.Node do
 
   """
   alias Kademlia.Node
-
   @default_k 4
   @default_bitspace 6
   @default_a 3
@@ -39,6 +38,10 @@ defmodule Kademlia.Node do
 
   def ping(sender_info, receiver) do
     GenServer.call(receiver, {:ping, sender_info})
+  end
+
+  def find_node(sender_info, receiver, node_id) do
+    GenServer.call(receiver, {:find_node, node_id, sender_info})
   end
 
   def get_id(pid) do
@@ -137,8 +140,7 @@ defmodule Kademlia.Node do
 
         true ->
           [lru | _] = bucket
-          IO.inspect(elem(lru, 0))
-          # :c.pid(0, 12, 0)
+          # liveness check can be used for ping
           if Process.alive?(elem(lru, 1)) do
             bucket = List.delete_at(bucket, 0)
             bucket ++ [lru]
@@ -150,6 +152,36 @@ defmodule Kademlia.Node do
 
     routing_table = Map.put(state.routing_table, common_prefix, bucket_new)
     Map.put(state, :routing_table, routing_table)
+  end
+
+  # TODO: not doing any parallel lookup now
+  @spec lookup(non_neg_integer(), map()) :: any()
+  def lookup(id, state) do
+    closest_nodes = get_closest_nodes(id, state)
+
+    node = Enum.find(closest_nodes, fn {node_id, _pid} ->
+      node_id == id
+    end)
+
+    if not is_nil(node) do
+      IO.inspect("NODE found #{node}")
+    else
+      looked_up_nodes =
+        Enum.each(closest_nodes, fn close_node_info ->
+          Node.find_node(state.node_info, close_node_info, id)
+        end)
+    end
+  end
+
+  # will implement the alpha node slice later...
+  @spec get_closest_nodes(non_neg_integer(), map()) :: list()
+  defp get_closest_nodes(id, state) do
+    Map.values(state.routing_table)
+    |> List.flatten()
+    |> Enum.sort_by(fn {node_id, _} ->
+      Bitwise.bxor(node_id, id)
+    end)
+    |> Enum.slice(0..state.k)
   end
 
   @spec create_initial_state(Keyword.t()) :: map()
