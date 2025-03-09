@@ -32,10 +32,6 @@ defmodule Kademlia.Node do
     GenServer.call(pid, {:put, key, val}, @timeout)
   end
 
-  def find_node(pid, id) do
-    GenServer.call(pid, {:find_node, id}, @timeout)
-  end
-
   def ping(sender_info, receiver) do
     GenServer.call(receiver, {:ping, sender_info})
   end
@@ -190,15 +186,16 @@ defmodule Kademlia.Node do
       end)
 
     if not is_nil(node) do
-      IO.inspect("NODE found #{node}")
+      IO.inspect("NODE found #{inspect(node)}")
       do_lookup_nodes(id, closest_nodes, state, new_nodes_count, node)
     else
       looked_up_nodes =
         Enum.map(closest_nodes, fn close_node_info ->
-          Node.find_node(state.node_info, close_node_info, id)
+          Node.find_node(state.info, elem(close_node_info, 1), id)
         end)
         |> List.flatten()
         |> Enum.into(MapSet.new())
+        |> IO.inspect(label: :lookedup_nodes)
 
       new_nodes_count = MapSet.difference(looked_up_nodes, closest_nodes) |> MapSet.size()
 

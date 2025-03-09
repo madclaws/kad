@@ -91,7 +91,40 @@ defmodule NodeTest do
     {:ok, pid3} = Node.start_link(node_id: 3)
     node_c_state = :sys.get_state(pid3)
     node_a_state = Node.update_k_buckets(node_c_state.info, node_a_state)
-    # If ping doesnt work node 2 should get evicted.
+    # If ping doesnt work nodfze 2 should get evicted.
     assert length(node_a_state.routing_table["00001"]) == 1
+  end
+
+  @tag :lookup
+  test "lookup" do
+    Application.put_env(:kademlia, :k, 2)
+    {:ok, pid} = Node.start_link(is_bootstrap: true)
+    {:ok, pid2} = Node.start_link(node_id: 40)
+    # assert :pong == Node.ping(:sys.get_state(pid).info, pid2)
+    node_a_state = :sys.get_state(pid)
+    node_b_state = :sys.get_state(pid2)
+
+    node_a_state =
+      Node.update_k_buckets(node_b_state.info, node_a_state)
+
+    node_b_state =
+      Node.update_k_buckets(node_a_state.info, node_b_state)
+
+    # Not availabel in own routing table
+    assert Node.lookup(2, node_b_state) == nil
+
+    # Available in own routing table
+    assert {0, _} = Node.lookup(0, node_b_state)
+
+    {:ok, pid3} = Node.start_link(node_id: 2)
+    node_c_state = :sys.get_state(pid3)
+
+    node_a_state =
+      Node.update_k_buckets(node_c_state.info, node_a_state)
+
+    :sys.replace_state(pid, fn _state -> node_a_state end)
+
+    # nodeId 2 is now in node A's bucket, so we should be able to hop and find it
+    assert {2, _} = Node.lookup(2, node_b_state)
   end
 end
