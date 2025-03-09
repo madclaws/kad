@@ -93,6 +93,5 @@ defmodule NodeTest do
     node_a_state = Node.update_k_buckets(node_c_state.info, node_a_state)
     # If ping doesnt work node 2 should get evicted.
     assert length(node_a_state.routing_table["00001"]) == 1
-
   end
 end

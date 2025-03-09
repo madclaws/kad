@@ -14,7 +14,6 @@ defmodule Utils do
     # then can be used for creating route table.
 
     # hex can maybe used for readability - use :binary.encode_hex()
-
   end
 
   @doc """

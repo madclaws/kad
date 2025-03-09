@@ -94,16 +94,11 @@ defmodule Kademlia.Node do
     end
   end
 
-  def handle_call({:find_node, id}, _from, state) do
+  def handle_call({:find_node, id, _sender_info}, _from, state) do
     # TODO: This should be recursive from a caller point of view.
     # finding the closest nodes to id from the routing table
     closest_nodes =
-      Map.values(state.routing_table)
-      |> List.flatten()
-      |> Enum.sort_by(fn {node_id, _} ->
-        Bitwise.bxor(node_id, id)
-      end)
-      |> Enum.slice(0..state.k)
+      get_closest_nodes(id, state)
 
     {:reply, closest_nodes, state}
   end
@@ -155,33 +150,65 @@ defmodule Kademlia.Node do
   end
 
   # TODO: not doing any parallel lookup now
-  @spec lookup(non_neg_integer(), map()) :: any()
+  @spec lookup(non_neg_integer(), map()) :: {non_neg_integer(), pid()} | nil
   def lookup(id, state) do
-    closest_nodes = get_closest_nodes(id, state)
-
-    node = Enum.find(closest_nodes, fn {node_id, _pid} ->
-      node_id == id
-    end)
-
-    if not is_nil(node) do
-      IO.inspect("NODE found #{node}")
-    else
-      looked_up_nodes =
-        Enum.each(closest_nodes, fn close_node_info ->
-          Node.find_node(state.node_info, close_node_info, id)
-        end)
-    end
+    closest_nodes = get_closest_nodes(id, state) |> Enum.into(MapSet.new())
+    do_lookup_nodes(id, closest_nodes, state, MapSet.size(closest_nodes), nil)
   end
 
   # will implement the alpha node slice later...
   @spec get_closest_nodes(non_neg_integer(), map()) :: list()
   defp get_closest_nodes(id, state) do
+    # TODO: can optimize to take from the closer routing tables first as per the paper
     Map.values(state.routing_table)
     |> List.flatten()
     |> Enum.sort_by(fn {node_id, _} ->
       Bitwise.bxor(node_id, id)
     end)
     |> Enum.slice(0..state.k)
+  end
+
+  @spec do_lookup_nodes(
+          non_neg_integer(),
+          MapSet.t(),
+          map(),
+          integer(),
+          {non_neg_integer(), pid()} | nil
+        ) ::
+          {integer(), pid()} | nil
+  # if we get the correct node, then we can just return that and stop the lookup process
+  defp do_lookup_nodes(_, _, _, _, result_node) when is_tuple(result_node), do: result_node
+
+  # if new_node_count is 0, ie means we got no new nodes from last round of lookup, ie
+  # we start go in circles, so stop & return nil
+  defp do_lookup_nodes(_, _, _, 0, _), do: nil
+
+  defp do_lookup_nodes(id, closest_nodes, state, new_nodes_count, _result_node) do
+    node =
+      Enum.find(closest_nodes, fn {node_id, _pid} ->
+        node_id == id
+      end)
+
+    if not is_nil(node) do
+      IO.inspect("NODE found #{node}")
+      do_lookup_nodes(id, closest_nodes, state, new_nodes_count, node)
+    else
+      looked_up_nodes =
+        Enum.map(closest_nodes, fn close_node_info ->
+          Node.find_node(state.node_info, close_node_info, id)
+        end)
+        |> List.flatten()
+        |> Enum.into(MapSet.new())
+
+      new_nodes_count = MapSet.difference(looked_up_nodes, closest_nodes) |> MapSet.size()
+
+      if new_nodes_count == 0 do
+        do_lookup_nodes(id, closest_nodes, state, new_nodes_count, nil)
+      else
+        closest_nodes = MapSet.union(looked_up_nodes, closest_nodes)
+        do_lookup_nodes(id, closest_nodes, state, new_nodes_count, nil)
+      end
+    end
   end
 
   @spec create_initial_state(Keyword.t()) :: map()
