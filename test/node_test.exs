@@ -111,10 +111,10 @@ defmodule NodeTest do
       Node.update_k_buckets(node_a_state.info, node_b_state)
 
     # Not availabel in own routing table
-    assert Node.lookup(2, node_b_state) == nil
+    assert {nil, _} = Node.lookup({2, :c.pid(0, 1, 3)}, node_b_state)
 
     # Available in own routing table
-    assert {0, _} = Node.lookup(0, node_b_state)
+    assert {{0, _}, _} = Node.lookup({0, :c.pid(0, 1, 3)}, node_b_state)
 
     {:ok, pid3} = Node.start_link(node_id: 2)
     node_c_state = :sys.get_state(pid3)
@@ -125,6 +125,48 @@ defmodule NodeTest do
     :sys.replace_state(pid, fn _state -> node_a_state end)
 
     # nodeId 2 is now in node A's bucket, so we should be able to hop and find it
-    assert {2, _} = Node.lookup(2, node_b_state)
+    assert {{2, _}, _} = Node.lookup({2, :c.pid(0, 1, 3)}, node_b_state)
+  end
+
+  @tag :skip
+  test "network genesis test" do
+    # https://codethechange.stanford.edu/guides/guide_kademlia.html#walkthrough-of-a-kademlia-network-genesis
+    Application.put_env(:kademlia, :bitspace, 3)
+    Application.put_env(:kademlia, :k, 2)
+    # started bootstrap node (Node #0)
+    {:ok, pid} = Node.start_link(is_bootstrap: true)
+
+    # Started node 010
+    {:ok, pid2} = Node.start_link(node_id: 2)
+
+    node_a_state = :sys.get_state(pid) |> IO.inspect()
+    node_b_state = :sys.get_state(pid2) |> IO.inspect()
+
+    # node_a_state =
+    #   Node.update_k_buckets(node_b_state.info, node_a_state) |> IO.inspect()
+
+    # node_b_state =
+    #   Node.update_k_buckets(node_a_state.info, node_b_state)
+
+    :sys.replace_state(pid, fn _state -> node_a_state end)
+    :sys.replace_state(pid2, fn _state -> node_b_state end)
+
+    Node.lookup({2, :c.pid(0, 1, 3)}, node_a_state) |> IO.inspect()
+    # # Not available in own routing table
+    # assert Node.lookup(2, node_b_state) == nil
+
+    # # Available in own routing table
+    # assert {0, _} = Node.lookup(0, node_b_state)
+
+    # {:ok, pid3} = Node.start_link(node_id: 2)
+    # node_c_state = :sys.get_state(pid3)
+
+    # node_a_state =
+    #   Node.update_k_buckets(node_c_state.info, node_a_state)
+
+    # :sys.replace_state(pid, fn _state -> node_a_state end)
+
+    # # nodeId 2 is now in node A's bucket, so we should be able to hop and find it
+    # assert {2, _} = Node.lookup(2, node_b_state)
   end
 end

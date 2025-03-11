@@ -109,7 +109,10 @@ defmodule Kademlia.Node do
   """
   @spec update_k_buckets({non_neg_integer(), pid()}, map()) :: map()
   def update_k_buckets({node_id, _pid} = node_info, state) do
-    node_id_bin = Integer.to_string(node_id, 2) |> Utils.format_bin_id(@default_bitspace)
+    node_id_bin =
+      Integer.to_string(node_id, 2)
+      |> Utils.format_bin_id(Application.get_env(:kademlia, :bitspace, @default_bitspace))
+
     # find the bucket
     common_prefix =
       Map.keys(state.routing_table)
@@ -146,10 +149,12 @@ defmodule Kademlia.Node do
   end
 
   # TODO: not doing any parallel lookup now
-  @spec lookup(non_neg_integer(), map()) :: {non_neg_integer(), pid()} | nil
-  def lookup(id, state) do
+  @spec lookup({non_neg_integer(), pid()}, map()) :: {{non_neg_integer(), pid()} | nil, map()}
+  def lookup({id, _pid} = _node_info, state) do
+    # state = update_k_buckets(node_info, state)
     closest_nodes = get_closest_nodes(id, state) |> Enum.into(MapSet.new())
-    do_lookup_nodes(id, closest_nodes, state, MapSet.size(closest_nodes), nil)
+    node_info = do_lookup_nodes(id, closest_nodes, state, MapSet.size(closest_nodes), nil)
+    {node_info, state}
   end
 
   # will implement the alpha node slice later...
@@ -195,8 +200,8 @@ defmodule Kademlia.Node do
         end)
         |> List.flatten()
         |> Enum.into(MapSet.new())
-        |> IO.inspect(label: :lookedup_nodes)
 
+      # B - A
       new_nodes_count = MapSet.difference(looked_up_nodes, closest_nodes) |> MapSet.size()
 
       if new_nodes_count == 0 do
