@@ -14,6 +14,8 @@ defmodule Kademlia.Node do
   # 1 min
   @timeout :timer.seconds(60)
 
+  @bootstrap_node 0
+
   use GenServer
   require Logger
 
@@ -50,7 +52,7 @@ defmodule Kademlia.Node do
 
   ################
   def init(args) do
-    {:ok, create_initial_state(args)}
+    {:ok, create_initial_state(args), {:continue, :bootstrap}}
   end
 
   def handle_call({:get, key}, {_caller_pid, _}, state) do
@@ -104,6 +106,11 @@ defmodule Kademlia.Node do
     {:reply, :pong, state}
   end
 
+  def handle_continue(:bootstrap, state) do
+
+    {:noreply, state}
+  end
+
   @doc """
   On get to know about a node, we try to add that node in our k-buckets
   """
@@ -149,12 +156,18 @@ defmodule Kademlia.Node do
   end
 
   # TODO: not doing any parallel lookup now
+  @doc """
+  The node_info for which we have to do a lookup
+  """
   @spec lookup({non_neg_integer(), pid()}, map()) :: {{non_neg_integer(), pid()} | nil, map()}
-  def lookup({id, _pid} = _node_info, state) do
-    # state = update_k_buckets(node_info, state)
+  def lookup({id, _pid} = node_info, state) do
+    # Get the k closest nodes form own bucket
+    # then recursively do lookup with closest nodes until we get the ID or we starting to run in circles
     closest_nodes = get_closest_nodes(id, state) |> Enum.into(MapSet.new())
-    node_info = do_lookup_nodes(id, closest_nodes, state, MapSet.size(closest_nodes), nil)
-    {node_info, state}
+    result_node_info = do_lookup_nodes(id, closest_nodes, state, MapSet.size(closest_nodes), nil)
+    # update the Node's bucket with the requestes node_info
+    state = update_k_buckets(node_info, state)
+    {result_node_info, state}
   end
 
   # will implement the alpha node slice later...

@@ -128,7 +128,7 @@ defmodule NodeTest do
     assert {{2, _}, _} = Node.lookup({2, :c.pid(0, 1, 3)}, node_b_state)
   end
 
-  @tag :skip
+  @tag :gen
   test "network genesis test" do
     # https://codethechange.stanford.edu/guides/guide_kademlia.html#walkthrough-of-a-kademlia-network-genesis
     Application.put_env(:kademlia, :bitspace, 3)
