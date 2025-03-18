@@ -14,7 +14,7 @@ defmodule Kademlia.Node do
   # 1 min
   @timeout :timer.seconds(60)
 
-  @bootstrap_node 0
+  # @bootstrap_node 0
 
   use GenServer
   require Logger
@@ -107,6 +107,9 @@ defmodule Kademlia.Node do
   end
 
   def handle_continue(:bootstrap, state) do
+    # if nodeID is 0, then we dont do anything
+    if elem(state.info, 0) > 0 do
+    end
 
     {:noreply, state}
   end
@@ -156,18 +159,10 @@ defmodule Kademlia.Node do
   end
 
   # TODO: not doing any parallel lookup now
-  @doc """
-  The node_info for which we have to do a lookup
-  """
-  @spec lookup({non_neg_integer(), pid()}, map()) :: {{non_neg_integer(), pid()} | nil, map()}
-  def lookup({id, _pid} = node_info, state) do
-    # Get the k closest nodes form own bucket
-    # then recursively do lookup with closest nodes until we get the ID or we starting to run in circles
+  @spec lookup(non_neg_integer(), map()) :: {non_neg_integer(), pid()} | nil
+  def lookup(id, state) do
     closest_nodes = get_closest_nodes(id, state) |> Enum.into(MapSet.new())
-    result_node_info = do_lookup_nodes(id, closest_nodes, state, MapSet.size(closest_nodes), nil)
-    # update the Node's bucket with the requestes node_info
-    state = update_k_buckets(node_info, state)
-    {result_node_info, state}
+    do_lookup_nodes(id, closest_nodes, state, MapSet.size(closest_nodes), nil)
   end
 
   # will implement the alpha node slice later...
