@@ -23,7 +23,13 @@ defmodule Kademlia.Node do
   Pass is_bootstrap: true for node to be acting as bootstrapped node
   """
   def start_link(args \\ []) do
-    GenServer.start_link(__MODULE__, args, [])
+    # only bootstrapped node will be named node, so that other processes
+    # can find the bootstrapped node while they are booting up
+    if is_nil(Keyword.get(args, :is_bootstrap)) do
+      GenServer.start_link(__MODULE__, args, [])
+    else
+      GenServer.start_link(__MODULE__, args, name: :genesis)
+    end
   end
 
   def get(pid, key) do
@@ -108,6 +114,7 @@ defmodule Kademlia.Node do
     # if nodeID is 0, then we dont do anything
     if elem(state.info, 0) > 0 do
     end
+
     # For other nodes, they have to somehow contact bootstrap node
     # for that they need to know the pid() of bootstrap node.
     # hmm, bootstrap node should be a NAMED node.

@@ -101,6 +101,8 @@ defmodule NodeTest do
   test "lookup" do
     Application.put_env(:kademlia, :k, 2)
     {:ok, pid} = Node.start_link(is_bootstrap: true)
+    Process.whereis(:genesis)
+
     {:ok, pid2} = Node.start_link(node_id: 40)
     # assert :pong == Node.ping(:sys.get_state(pid).info, pid2)
     node_a_state = :sys.get_state(pid)
@@ -137,7 +139,6 @@ defmodule NodeTest do
     Application.put_env(:kademlia, :k, 2)
     # started bootstrap node (Node #0)
     {:ok, pid} = Node.start_link(is_bootstrap: true)
-
     # Started node 010
     {:ok, pid2} = Node.start_link(node_id: 2)
 
