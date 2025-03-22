@@ -44,7 +44,7 @@ defmodule Kademlia.Node do
     GenServer.call(receiver, {:ping, sender_info})
   end
 
-  def find_node(sender_info, receiver, node_id) do
+  def find_node({_id, _pid} = sender_info, receiver, node_id) do
     GenServer.call(receiver, {:find_node, node_id, sender_info})
   end
 
@@ -98,9 +98,13 @@ defmodule Kademlia.Node do
     end
   end
 
-  def handle_call({:find_node, id, _sender_info}, _from, state) do
+  def handle_call({:find_node, id, {_sender_id, _pid} = sender_info}, _from, state) do
     closest_nodes =
       get_closest_nodes(id, state)
+
+    # when a node gets a find_node request, it adds the requestee node details
+    # to its own routing table
+    state = update_k_buckets(sender_info, state)
 
     {:reply, closest_nodes, state}
   end
@@ -116,11 +120,18 @@ defmodule Kademlia.Node do
       # Add bootstrap node info to the bucket
       pid = Process.whereis(:genesis)
       state = update_k_buckets({0, pid}, state)
-      lookup(elem(state.info, 0), state) |> IO.inspect()
+      lookup(elem(state.info, 0), state)
       {:noreply, state}
     else
       {:noreply, state}
     end
+  end
+
+  def handle_info({:update_k_buckets, closest_nodes}, state) do
+    Enum.reduce(closest_nodes, state, fn node_info, state ->
+      update_k_buckets(node_info, state)
+    end)
+    |> then(&{:noreply, &1})
   end
 
   @doc """
@@ -137,6 +148,7 @@ defmodule Kademlia.Node do
       Map.keys(state.routing_table)
       |> Enum.find(fn k -> String.starts_with?(node_id_bin, k) end)
 
+    # IO.inspect()
     bucket = state.routing_table[common_prefix]
     node_index = Enum.find_index(bucket, &(elem(&1, 0) == node_id))
 
@@ -196,11 +208,21 @@ defmodule Kademlia.Node do
         ) ::
           {integer(), pid()} | nil
   # if we get the correct node, then we can just return that and stop the lookup process
-  defp do_lookup_nodes(_, _, _, _, _, result_node) when is_tuple(result_node), do: result_node
+  defp do_lookup_nodes(_, closest_nodes, _, _, _, result_node) when is_tuple(result_node) do
+    # once we get correct node/nil, we update the new nodes we got to
+    # know into our k-buckets
+    Process.send(self(), {:update_k_buckets, closest_nodes}, [])
+    result_node
+  end
 
   # if new_node_count is 0, ie means we got no new nodes from last round of lookup, ie
   # we start to go in circles, so stop & return nil
-  defp do_lookup_nodes(_, _, _, _, 0, _), do: nil
+  defp do_lookup_nodes(_, closest_nodes, _, _, 0, _) do
+    # once we get correct node/nil, we update the new nodes we got to
+    # know into our k-buckets
+    Process.send(self(), {:update_k_buckets, closest_nodes}, [])
+    nil
+  end
 
   # closest_nodes - This will be an accumulation of all the closest_nodes we get from hopping
   # to_lookup_nodes - These are the unique nodes to which we can do a lookup in the next round
@@ -219,7 +241,12 @@ defmodule Kademlia.Node do
       looked_up_nodes =
         Enum.map(to_lookup_nodes, fn close_node_info ->
           # Handle the timeout failure
-          Node.find_node(state.info, elem(close_node_info, 1), id)
+          # We don't want to send a find_node to ourselves
+          if elem(close_node_info, 0) != elem(state.info, 0) do
+            Node.find_node(state.info, elem(close_node_info, 1), id)
+          else
+            []
+          end
         end)
         |> List.flatten()
         |> Enum.into(MapSet.new())
