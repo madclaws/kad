@@ -58,7 +58,7 @@ defmodule Kademlia.Node do
 
   ################
   def init(args) do
-    {:ok, create_initial_state(args), {:continue, :bootstrap}}
+    {:ok, create_initial_state(args), {:continue, :join_network}}
   end
 
   def handle_call({:get, key}, {_caller_pid, _}, state) do
@@ -110,15 +110,17 @@ defmodule Kademlia.Node do
     {:reply, :pong, state}
   end
 
-  def handle_continue(:bootstrap, state) do
+  def handle_continue(:join_network, state) do
     # if nodeID is 0, then we dont do anything
     if elem(state.info, 0) > 0 do
+      # Add bootstrap node info to the bucket
+      pid = Process.whereis(:genesis)
+      state = update_k_buckets({0, pid}, state)
+      lookup(elem(state.info, 0), state) |> IO.inspect()
+      {:noreply, state}
+    else
+      {:noreply, state}
     end
-
-    # For other nodes, they have to somehow contact bootstrap node
-    # for that they need to know the pid() of bootstrap node.
-    # hmm, bootstrap node should be a NAMED node.
-    {:noreply, state}
   end
 
   @doc """

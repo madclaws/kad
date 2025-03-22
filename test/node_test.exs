@@ -12,7 +12,9 @@ defmodule NodeTest do
     assert Node.get_id(pid) == 0
   end
 
+  @tag :t
   test "creating a non-bootstrapped node" do
+    {:ok, _pid} = Node.start_link(is_bootstrap: true)
     {:ok, pid} = Node.start_link()
 
     assert Node.get_id(pid) > 0
