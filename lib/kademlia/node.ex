@@ -14,8 +14,6 @@ defmodule Kademlia.Node do
   # 1 min
   @timeout :timer.seconds(60)
 
-  # @bootstrap_node 0
-
   use GenServer
   require Logger
 
@@ -180,7 +178,8 @@ defmodule Kademlia.Node do
   end
 
   # TODO: not doing any parallel lookup now
-  @spec lookup(non_neg_integer(), map()) :: {non_neg_integer(), pid()} | nil
+  # Returns either the lookedup node or list of k-closest nodes
+  @spec lookup(non_neg_integer(), map()) :: [{non_neg_integer(), pid()}]
   def lookup(id, state) do
     closest_nodes = get_closest_nodes(id, state) |> Enum.into(MapSet.new())
     do_lookup_nodes(id, closest_nodes, closest_nodes, state, MapSet.size(closest_nodes), nil)
@@ -206,22 +205,27 @@ defmodule Kademlia.Node do
           integer(),
           {non_neg_integer(), pid()} | nil
         ) ::
-          {integer(), pid()} | nil
+          list({integer(), pid()})
   # if we get the correct node, then we can just return that and stop the lookup process
   defp do_lookup_nodes(_, closest_nodes, _, _, _, result_node) when is_tuple(result_node) do
     # once we get correct node/nil, we update the new nodes we got to
     # know into our k-buckets
     Process.send(self(), {:update_k_buckets, closest_nodes}, [])
-    result_node
+    [result_node]
   end
 
   # if new_node_count is 0, ie means we got no new nodes from last round of lookup, ie
-  # we start to go in circles, so stop & return nil
-  defp do_lookup_nodes(_, closest_nodes, _, _, 0, _) do
+  # we start to go in circles, so stop & return k closest-nodes
+  defp do_lookup_nodes(id, closest_nodes, _, state, 0, _) do
     # once we get correct node/nil, we update the new nodes we got to
     # know into our k-buckets
     Process.send(self(), {:update_k_buckets, closest_nodes}, [])
-    nil
+
+    closest_nodes
+    |> Enum.sort_by(fn {node_id, _} ->
+      Bitwise.bxor(node_id, id)
+    end)
+    |> Enum.slice(0..state.k)
   end
 
   # closest_nodes - This will be an accumulation of all the closest_nodes we get from hopping

@@ -114,10 +114,10 @@ defmodule NodeTest do
     node_b_state = :sys.get_state(pid2)
 
     # # Not availabel in own routing table
-    assert nil == Node.lookup(2, node_b_state)
+    assert [{0, _}, {40, _}] = Node.lookup(2, node_b_state)
 
     # # Available in own routing table
-    assert {0, _} = Node.lookup(0, node_b_state)
+    assert [{0, _}] = Node.lookup(0, node_b_state)
 
     {:ok, pid3} = Node.start_link(node_id: 2)
 
@@ -134,7 +134,7 @@ defmodule NodeTest do
     :sys.replace_state(pid, fn _state -> node_a_state end)
 
     # # nodeId 2 is now in node A's bucket, so we should be able to hop and find it
-    assert {2, _} = Node.lookup(2, node_b_state)
+    assert [{2, _}] = Node.lookup(2, node_b_state)
   end
 
   @tag :skip
