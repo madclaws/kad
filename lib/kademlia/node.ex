@@ -46,6 +46,18 @@ defmodule Kademlia.Node do
     GenServer.call(receiver, {:find_node, node_id, sender_info})
   end
 
+  # make sure the put hashes into a number
+  @spec find_value(pid(), non_neg_integer()) :: any()
+  def find_value(receiver_pid, key) do
+    GenServer.call(receiver_pid, {:find_value, key})
+  end
+
+  # make sure the put hashes into a number
+  @spec store(pid(), non_neg_integer(), any()) :: any()
+  def store(receiver_pid, key, value) do
+    GenServer.cast(receiver_pid, {:store, key, value})
+  end
+
   def get_id(pid) do
     :sys.get_state(pid).info |> elem(0)
   end
@@ -61,39 +73,34 @@ defmodule Kademlia.Node do
 
   def handle_call({:get, key}, {_caller_pid, _}, state) do
     Logger.info("NODE #{__MODULE__.get_id(self())}:: GET operation for KEY #{key}")
-    current_bitspace = Application.get_env(:kademlia, :bitspace, @default_bitspace)
+    # TODO: when we make generic, we have to hash it to a number.
 
-    cond do
-      not is_number(key) ->
-        {:reply, {:error, "Key should be number"}, state}
+    closest_nodes = lookup(key, state)
 
-      key > Utils.get_max_id(current_bitspace) ->
-        {:reply, {:error, "Key is out of bitspace (#{current_bitspace})"}, state}
+    Enum.reduce_while(closest_nodes, nil, fn {_node_id, pid}, value ->
+      val = Node.find_value(pid, key)
 
-      true ->
-        {:reply, state.hash_map[key], state}
-    end
+      if is_nil(val) do
+        {:cont, value}
+      else
+        {:halt, val}
+      end
+    end)
+    |> then(&{:reply, &1, state})
   end
 
   def handle_call({:put, key, val}, {_caller_pid, _}, state) do
     Logger.info("NODE #{__MODULE__.get_id(self())}:: PUT operation for KEY #{key} VAL #{val}")
-    current_bitspace = Application.get_env(:kademlia, :bitspace, @default_bitspace)
 
-    if key > current_bitspace do
-    end
+    # TODO: when we make generic, we have hash it to a number.
 
-    cond do
-      not is_number(key) ->
-        {:reply, {:error, "Key should be number"}, state}
+    closest_nodes = lookup(key, state)
 
-      key > Utils.get_max_id(current_bitspace) ->
-        {:reply, {:error, "Key is out of bitspace (#{current_bitspace})"}, state}
+    Enum.each(closest_nodes, fn {_node_id, pid} ->
+      Node.store(pid, key, val)
+    end)
 
-      true ->
-        hash_map = Map.put(state.hash_map, key, val)
-        state = Map.put(state, :hash_map, hash_map)
-        {:reply, {:ok, val}, state}
-    end
+    {:reply, val, state}
   end
 
   def handle_call({:find_node, id, {_sender_id, _pid} = sender_info}, _from, state) do
@@ -107,9 +114,18 @@ defmodule Kademlia.Node do
     {:reply, closest_nodes, state}
   end
 
+  def handle_call({:find_value, key}, _from, state) do
+    {:reply, Map.get(state.hash_map, key), state}
+  end
+
   def handle_call({:ping, {send_id, _send_pid}}, _, state) do
     Logger.info("NODE #{elem(state.info, 0)}:: Got ping from #{send_id}")
     {:reply, :pong, state}
+  end
+
+  def handle_cast({:store, key, value}, state) do
+    hash_map = Map.put(state.hash_map, key, value)
+    {:noreply, %{state | hash_map: hash_map}}
   end
 
   def handle_continue(:join_network, state) do
