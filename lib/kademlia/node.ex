@@ -72,29 +72,35 @@ defmodule Kademlia.Node do
   end
 
   def handle_call({:get, key}, {_caller_pid, _}, state) do
-    Logger.info("NODE #{__MODULE__.get_id(self())}:: GET operation for KEY #{key}")
+    Logger.info("NODE #{elem(state.info, 0)}:: GET operation for KEY #{key}")
     # TODO: when we make generic, we have to hash it to a number.
 
     closest_nodes = lookup(key, state)
 
-    Enum.reduce_while(closest_nodes, nil, fn {_node_id, pid}, value ->
-      val = Node.find_value(pid, key)
+    case Map.get(state.hash_map, key) do
+      nil ->
+        Enum.reduce_while(closest_nodes, nil, fn {_node_id, pid}, value ->
+          val = Node.find_value(pid, key)
 
-      if is_nil(val) do
-        {:cont, value}
-      else
-        {:halt, val}
-      end
-    end)
+          if is_nil(val) do
+            {:cont, value}
+          else
+            {:halt, val}
+          end
+        end)
+
+      val ->
+        val
+    end
     |> then(&{:reply, &1, state})
   end
 
   def handle_call({:put, key, val}, {_caller_pid, _}, state) do
-    Logger.info("NODE #{__MODULE__.get_id(self())}:: PUT operation for KEY #{key} VAL #{val}")
+    Logger.info("NODE #{elem(state.info, 0)}:: PUT operation for KEY #{key} VAL #{val}")
 
     # TODO: when we make generic, we have hash it to a number.
 
-    closest_nodes = lookup(key, state)
+    closest_nodes = [state.info | lookup(key, state)]
 
     Enum.each(closest_nodes, fn {_node_id, pid} ->
       Node.store(pid, key, val)
@@ -152,6 +158,9 @@ defmodule Kademlia.Node do
   On get to know about a node, we try to add that node in our k-buckets
   """
   @spec update_k_buckets({non_neg_integer(), pid()}, map()) :: map()
+  # we don't want to add ourselves in our own routing table ;)
+  def update_k_buckets({node_id, _pid} = _node_info, %{info: {node_id, _}} = state), do: state
+
   def update_k_buckets({node_id, _pid} = node_info, state) do
     node_id_bin =
       Integer.to_string(node_id, 2)
@@ -198,6 +207,11 @@ defmodule Kademlia.Node do
   @spec lookup(non_neg_integer(), map()) :: [{non_neg_integer(), pid()}]
   def lookup(id, state) do
     closest_nodes = get_closest_nodes(id, state) |> Enum.into(MapSet.new())
+
+    Logger.debug("Next round of hopping with closest nodes #{inspect(closest_nodes)}",
+      ansi_color: :green
+    )
+
     do_lookup_nodes(id, closest_nodes, closest_nodes, state, MapSet.size(closest_nodes), nil)
   end
 
@@ -260,7 +274,7 @@ defmodule Kademlia.Node do
       # Get all the closest nodes of the to_lookup_nodes
       looked_up_nodes =
         Enum.map(to_lookup_nodes, fn close_node_info ->
-          # Handle the timeout failure
+          # TODO: Handle the timeout failure
           # We don't want to send a find_node to ourselves
           if elem(close_node_info, 0) != elem(state.info, 0) do
             Node.find_node(state.info, elem(close_node_info, 1), id)
@@ -280,6 +294,11 @@ defmodule Kademlia.Node do
         do_lookup_nodes(id, closest_nodes, to_lookup_nodes, state, new_nodes_count, nil)
       else
         closest_nodes = MapSet.union(looked_up_nodes, closest_nodes)
+
+        Logger.debug("Next round of hopping with new found nodes #{inspect(to_lookup_nodes)}",
+          ansi_color: :green
+        )
+
         do_lookup_nodes(id, closest_nodes, to_lookup_nodes, state, new_nodes_count, nil)
       end
     end

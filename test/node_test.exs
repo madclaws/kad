@@ -177,4 +177,35 @@ defmodule NodeTest do
     # # nodeId 2 is now in node A's bucket, so we should be able to hop and find it
     # assert {2, _} = Node.lookup(2, node_b_state)
   end
+
+  @tag :put
+  test "put/get for genesis node" do
+    Application.put_env(:kademlia, :k, 2)
+    {:ok, pid} = Node.start_link(is_bootstrap: true)
+
+    assert "hello" = Node.put(pid, 20, "hello")
+
+    assert "hello" = Node.get(pid, 20)
+
+    # {:ok, pid2} = Node.start_link(node_id: 40)
+
+    # Process.sleep(100)
+  end
+
+  @tag :puta
+  test "PUT on node_b and query from genesis node" do
+    Application.put_env(:kademlia, :k, 2)
+    {:ok, pid} = Node.start_link(is_bootstrap: true)
+
+    {:ok, pid2} = Node.start_link(node_id: 40)
+
+    assert "hello" = Node.put(pid2, 20, "hello")
+    Process.sleep(1000)
+
+    assert "hello" = Node.get(pid, 20)
+
+    # {:ok, pid2} = Node.start_link(node_id: 40)
+
+    # Process.sleep(100)
+  end
 end
