@@ -43,8 +43,8 @@ defmodule NodeTest do
   @tag :k
   test "updating k-buckets" do
     Application.put_env(:kademlia, :k, 1)
-    {:ok, pid} = Node.start_link(is_bootstrap: true)
-    {:ok, pid2} = Node.start_link(node_id: 2)
+    {:ok, pid} = Node.start_link(is_bootstrap: true, k: 1)
+    {:ok, pid2} = Node.start_link(node_id: 2, k: 1)
     # assert :pong == Node.ping(:sys.get_state(pid).info, pid2)
     node_a_state = :sys.get_state(pid)
     node_b_state = :sys.get_state(pid2)
@@ -52,7 +52,7 @@ defmodule NodeTest do
     n_state = Node.update_k_buckets(node_b_state.info, node_a_state)
     assert [{2, _}] = n_state.routing_table["00001"]
 
-    {:ok, pid3} = Node.start_link(node_id: 3)
+    {:ok, pid3} = Node.start_link(node_id: 3, k: 1)
     node_c_state = :sys.get_state(pid3)
     state = Node.update_k_buckets(node_c_state.info, n_state)
     # Making sure if Ping to node_2 works then we discard the incoming node
@@ -82,9 +82,8 @@ defmodule NodeTest do
 
   @tag :k2
   test "updating k-buckets with K=1, discarding the lru if ping fails" do
-    Application.put_env(:kademlia, :k, 1)
-    {:ok, pid} = Node.start_link(is_bootstrap: true)
-    {:ok, pid2} = Node.start_link(node_id: 2)
+    {:ok, pid} = Node.start_link(is_bootstrap: true, k: 1)
+    {:ok, pid2} = Node.start_link(node_id: 2, k: 1)
     # assert :pong == Node.ping(:sys.get_state(pid).info, pid2)
     node_a_state = :sys.get_state(pid)
     node_b_state = :sys.get_state(pid2)
@@ -92,7 +91,7 @@ defmodule NodeTest do
     node_a_state = Node.update_k_buckets(node_b_state.info, node_a_state)
     assert [{2, _}] = node_a_state.routing_table["00001"]
 
-    {:ok, pid3} = Node.start_link(node_id: 3)
+    {:ok, pid3} = Node.start_link(node_id: 3, k: 1)
     node_c_state = :sys.get_state(pid3)
     node_a_state = Node.update_k_buckets(node_c_state.info, node_a_state)
     # If ping doesnt work nodfze 2 should get evicted.
@@ -101,20 +100,19 @@ defmodule NodeTest do
 
   @tag :lookup
   test "lookup" do
-    Application.put_env(:kademlia, :k, 2)
     {:ok, pid} = Node.start_link(is_bootstrap: true)
 
     {:ok, pid2} = Node.start_link(node_id: 40)
 
     # assert :pong == Node.ping(:sys.get_state(pid).info, pid2)
-    Process.sleep(100)
+    Process.sleep(1000)
     # |> IO.inspect()
     _node_a_state = :sys.get_state(pid)
     # |> IO.inspect()
     node_b_state = :sys.get_state(pid2)
 
     # # Not availabel in own routing table
-    assert [{0, _}, {40, _}] = Node.lookup(2, node_b_state)
+    assert [{0, _}] = Node.lookup(2, node_b_state)
 
     # # Available in own routing table
     assert [{0, _}] = Node.lookup(0, node_b_state)
@@ -141,14 +139,13 @@ defmodule NodeTest do
   test "network genesis test" do
     # https://codethechange.stanford.edu/guides/guide_kademlia.html#walkthrough-of-a-kademlia-network-genesis
     Application.put_env(:kademlia, :bitspace, 3)
-    Application.put_env(:kademlia, :k, 2)
     # started bootstrap node (Node #0)
     {:ok, pid} = Node.start_link(is_bootstrap: true)
     # Started node 010
     {:ok, pid2} = Node.start_link(node_id: 2)
 
-    node_a_state = :sys.get_state(pid) |> IO.inspect()
-    node_b_state = :sys.get_state(pid2) |> IO.inspect()
+    node_a_state = :sys.get_state(pid)
+    node_b_state = :sys.get_state(pid2)
 
     # node_a_state =
     #   Node.update_k_buckets(node_b_state.info, node_a_state) |> IO.inspect()
@@ -159,7 +156,7 @@ defmodule NodeTest do
     :sys.replace_state(pid, fn _state -> node_a_state end)
     :sys.replace_state(pid2, fn _state -> node_b_state end)
 
-    Node.lookup(2, node_a_state) |> IO.inspect()
+    Node.lookup(2, node_a_state)
     # # Not available in own routing table
     # assert Node.lookup(2, node_b_state) == nil
 
@@ -194,15 +191,22 @@ defmodule NodeTest do
 
   @tag :puta
   test "PUT on node_b and query from genesis node" do
-    Application.put_env(:kademlia, :k, 2)
-    {:ok, pid} = Node.start_link(is_bootstrap: true)
+    Application.put_env(:kademlia, :k, 1)
+    {:ok, pid} = Node.start_link(is_bootstrap: true, k: 1)
 
-    {:ok, pid2} = Node.start_link(node_id: 40)
+    {:ok, pid2} = Node.start_link(node_id: 40, k: 1)
+    {:ok, pid3} = Node.start_link(node_id: 60, k: 1)
 
-    assert "hello" = Node.put(pid2, 20, "hello")
     Process.sleep(1000)
+    assert "hello" = Node.put(pid3, 50, "hello")
 
-    assert "hello" = Node.get(pid, 20)
+    # Node 40 would have key 50, and node 0 wouldnt have
+    # due to closeness
+
+    assert %{hash_map: %{50 => "hello"}} = :sys.get_state(pid2)
+    assert nil == get_in(:sys.get_state(pid), [:hash_map, 50])
+
+    # assert "hello" = Node.get(pid, 20)
 
     # {:ok, pid2} = Node.start_link(node_id: 40)
 

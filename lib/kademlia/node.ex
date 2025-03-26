@@ -109,9 +109,9 @@ defmodule Kademlia.Node do
     {:reply, val, state}
   end
 
-  def handle_call({:find_node, id, {_sender_id, _pid} = sender_info}, _from, state) do
+  def handle_call({:find_node, id, {sender_id, _pid} = sender_info}, _from, state) do
     closest_nodes =
-      get_closest_nodes(id, state)
+      get_closest_nodes(id, state, sender_id)
 
     # when a node gets a find_node request, it adds the requestee node details
     # to its own routing table
@@ -171,7 +171,6 @@ defmodule Kademlia.Node do
       Map.keys(state.routing_table)
       |> Enum.find(fn k -> String.starts_with?(node_id_bin, k) end)
 
-    # IO.inspect()
     bucket = state.routing_table[common_prefix]
     node_index = Enum.find_index(bucket, &(elem(&1, 0) == node_id))
 
@@ -208,7 +207,8 @@ defmodule Kademlia.Node do
   def lookup(id, state) do
     closest_nodes = get_closest_nodes(id, state) |> Enum.into(MapSet.new())
 
-    Logger.debug("Next round of hopping with closest nodes #{inspect(closest_nodes)}",
+    Logger.debug(
+      "NODE: #{elem(state.info, 0)}: Next round of hopping with closest nodes #{inspect(closest_nodes)}",
       ansi_color: :green
     )
 
@@ -217,14 +217,23 @@ defmodule Kademlia.Node do
 
   # will implement the alpha node slice later...
   @spec get_closest_nodes(non_neg_integer(), map()) :: list()
-  defp get_closest_nodes(id, state) do
+  defp get_closest_nodes(id, state, sender_node_id \\ nil) do
     # TODO: can optimize to take from the closer routing tables first as per the paper
-    Map.values(state.routing_table)
-    |> List.flatten()
+    nodes =
+      Map.values(state.routing_table)
+      |> List.flatten()
+
+    if is_nil(sender_node_id) do
+      nodes
+    else
+      Enum.filter(nodes, fn {id, _pid} ->
+        id != sender_node_id
+      end)
+    end
     |> Enum.sort_by(fn {node_id, _} ->
       Bitwise.bxor(node_id, id)
     end)
-    |> Enum.slice(0..state.k)
+    |> Enum.slice(0..(state.k - 1))
   end
 
   @spec do_lookup_nodes(
@@ -255,7 +264,7 @@ defmodule Kademlia.Node do
     |> Enum.sort_by(fn {node_id, _} ->
       Bitwise.bxor(node_id, id)
     end)
-    |> Enum.slice(0..state.k)
+    |> Enum.slice(0..(state.k - 1))
   end
 
   # closest_nodes - This will be an accumulation of all the closest_nodes we get from hopping
@@ -295,7 +304,8 @@ defmodule Kademlia.Node do
       else
         closest_nodes = MapSet.union(looked_up_nodes, closest_nodes)
 
-        Logger.debug("Next round of hopping with new found nodes #{inspect(to_lookup_nodes)}",
+        Logger.debug(
+          "NODE: #{elem(state.info, 0)}: Next round of hopping with *NEW* found nodes #{inspect(to_lookup_nodes)}",
           ansi_color: :green
         )
 
@@ -328,7 +338,7 @@ defmodule Kademlia.Node do
     Logger.info("Node #{node_id}:: Routing table\n #{inspect(routing_table)}")
 
     %{
-      k: Application.get_env(:kademlia, :k, @default_k),
+      k: Keyword.get(args, :k, @default_k),
       # alpha: max concurrency lookups
       a: Application.get_env(:kademlia, :a, @default_a),
       info: {node_id, self()},
