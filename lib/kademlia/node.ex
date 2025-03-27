@@ -72,7 +72,7 @@ defmodule Kademlia.Node do
   end
 
   def handle_call({:get, key}, {_caller_pid, _}, state) do
-    Logger.info("NODE #{elem(state.info, 0)}:: GET operation for KEY #{key}")
+    Logger.info("NODE #{elem(state.info, 0)}:: GET operation for KEY #{key}", ansi_color: :blue)
     # TODO: when we make generic, we have to hash it to a number.
 
     closest_nodes = lookup(key, state)
@@ -96,7 +96,9 @@ defmodule Kademlia.Node do
   end
 
   def handle_call({:put, key, val}, {_caller_pid, _}, state) do
-    Logger.info("NODE #{elem(state.info, 0)}:: PUT operation for KEY #{key} VAL #{val}")
+    Logger.debug("NODE #{elem(state.info, 0)}:: PUT operation for KEY #{key} VAL #{val}",
+      ansi_color: :magenta
+    )
 
     # TODO: when we make generic, we have hash it to a number.
 
@@ -162,16 +164,25 @@ defmodule Kademlia.Node do
   def update_k_buckets({node_id, _pid} = _node_info, %{info: {node_id, _}} = state), do: state
 
   def update_k_buckets({node_id, _pid} = node_info, state) do
-    node_id_bin =
-      Integer.to_string(node_id, 2)
-      |> Utils.format_bin_id(Application.get_env(:kademlia, :bitspace, @default_bitspace))
-
     # find the bucket
     common_prefix =
-      Map.keys(state.routing_table)
-      |> Enum.find(fn k -> String.starts_with?(node_id_bin, k) end)
+      Utils.get_common_prefix(
+        elem(state.info, 0),
+        node_id,
+        Application.get_env(:kademlia, :bitspace, @default_bitspace)
+      )
 
-    bucket = state.routing_table[common_prefix]
+    {bucket, routing_table} =
+      Map.get_and_update(state.routing_table, common_prefix, fn
+        cur_val when is_nil(cur_val) ->
+          {[], []}
+
+        cur_val ->
+          {cur_val, cur_val}
+      end)
+
+    state = Map.put(state, :routing_table, routing_table)
+
     node_index = Enum.find_index(bucket, &(elem(&1, 0) == node_id))
 
     bucket_new =
@@ -277,7 +288,10 @@ defmodule Kademlia.Node do
       end)
 
     if not is_nil(node) do
-      IO.inspect("NODE found #{inspect(node)}")
+      Logger.debug("NODE: #{elem(state.info, 0)}: Node found #{inspect(node)}",
+        ansi_color: :yellow
+      )
+
       do_lookup_nodes(id, closest_nodes, to_lookup_nodes, state, new_nodes_count, node)
     else
       # Get all the closest nodes of the to_lookup_nodes
@@ -334,16 +348,13 @@ defmodule Kademlia.Node do
       "Node started with ID: #{node_id}, PID: #{inspect(self())}, bootstrap_node?: #{Keyword.get(args, :is_bootstrap, false)}"
     )
 
-    routing_table = Utils.create_routing_table(node_id, bitspace)
-    Logger.info("Node #{node_id}:: Routing table\n #{inspect(routing_table)}")
-
     %{
       k: Keyword.get(args, :k, @default_k),
       # alpha: max concurrency lookups
       a: Application.get_env(:kademlia, :a, @default_a),
       info: {node_id, self()},
       hash_map: %{},
-      routing_table: routing_table
+      routing_table: %{}
     }
   end
 end

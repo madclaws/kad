@@ -20,19 +20,6 @@ defmodule NodeTest do
     assert Node.get_id(pid) > 0
   end
 
-  test "Check basic routing table generation" do
-    {:ok, pid} = Node.start_link(is_bootstrap: true)
-
-    assert %{
-             "1" => _,
-             "000001" => _,
-             "00001" => _,
-             "0001" => _,
-             "001" => _,
-             "01" => _
-           } = Node.get_routing_table(pid)
-  end
-
   @tag :ping
   test "Check ping/ping" do
     {:ok, pid} = Node.start_link(is_bootstrap: true)
@@ -135,46 +122,6 @@ defmodule NodeTest do
     assert [{2, _}] = Node.lookup(2, node_b_state)
   end
 
-  @tag :skip
-  test "network genesis test" do
-    # https://codethechange.stanford.edu/guides/guide_kademlia.html#walkthrough-of-a-kademlia-network-genesis
-    Application.put_env(:kademlia, :bitspace, 3)
-    # started bootstrap node (Node #0)
-    {:ok, pid} = Node.start_link(is_bootstrap: true)
-    # Started node 010
-    {:ok, pid2} = Node.start_link(node_id: 2)
-
-    node_a_state = :sys.get_state(pid)
-    node_b_state = :sys.get_state(pid2)
-
-    # node_a_state =
-    #   Node.update_k_buckets(node_b_state.info, node_a_state) |> IO.inspect()
-
-    # node_b_state =
-    #   Node.update_k_buckets(node_a_state.info, node_b_state)
-
-    :sys.replace_state(pid, fn _state -> node_a_state end)
-    :sys.replace_state(pid2, fn _state -> node_b_state end)
-
-    Node.lookup(2, node_a_state)
-    # # Not available in own routing table
-    # assert Node.lookup(2, node_b_state) == nil
-
-    # # Available in own routing table
-    # assert {0, _} = Node.lookup(0, node_b_state)
-
-    # {:ok, pid3} = Node.start_link(node_id: 2)
-    # node_c_state = :sys.get_state(pid3)
-
-    # node_a_state =
-    #   Node.update_k_buckets(node_c_state.info, node_a_state)
-
-    # :sys.replace_state(pid, fn _state -> node_a_state end)
-
-    # # nodeId 2 is now in node A's bucket, so we should be able to hop and find it
-    # assert {2, _} = Node.lookup(2, node_b_state)
-  end
-
   @tag :put
   test "put/get for genesis node" do
     Application.put_env(:kademlia, :k, 2)
@@ -205,10 +152,6 @@ defmodule NodeTest do
 
     assert %{hash_map: %{50 => "hello"}} = :sys.get_state(pid2)
     assert nil == get_in(:sys.get_state(pid), [:hash_map, 50])
-
-    # assert "hello" = Node.get(pid, 20)
-
-    # {:ok, pid2} = Node.start_link(node_id: 40)
 
     # Process.sleep(100)
   end

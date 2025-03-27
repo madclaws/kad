@@ -51,23 +51,21 @@ defmodule Utils do
     |> :binary.decode_unsigned(:little)
   end
 
-  @spec create_routing_table(non_neg_integer(), non_neg_integer()) :: map()
-  def create_routing_table(node_id, bitspace) do
-    node_id = Integer.to_string(node_id, 2)
-    node_id_bin = format_bin_id(node_id, bitspace)
-
-    Enum.reduce(1..bitspace, %{}, fn bit, table ->
-      prefix = String.slice(node_id_bin, 0, bit)
-
-      prefix = String.replace_suffix(prefix, String.last(prefix), flip_bit(String.last(prefix)))
-      Map.put(table, prefix, [])
-    end)
-  end
-
   def format_bin_id(node_id_bin, bitspace) do
     String.duplicate("0", bitspace - String.length(node_id_bin)) <> node_id_bin
   end
 
-  defp flip_bit("0"), do: "1"
-  defp flip_bit("1"), do: "0"
+  @spec get_common_prefix(non_neg_integer(), non_neg_integer(), non_neg_integer()) :: String.t()
+  def get_common_prefix(self_node, incoming_node, bitspace) do
+    self_node_str = Integer.to_string(self_node, 2) |> format_bin_id(bitspace)
+    incoming_node_str = Integer.to_string(incoming_node, 2) |> format_bin_id(bitspace)
+
+    Enum.reduce_while(0..(bitspace - 1), "", fn index, bucket ->
+      if String.at(self_node_str, index) == String.at(incoming_node_str, index) do
+        {:cont, bucket <> String.at(self_node_str, index)}
+      else
+        {:halt, bucket <> String.at(incoming_node_str, index)}
+      end
+    end)
+  end
 end
