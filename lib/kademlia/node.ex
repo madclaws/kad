@@ -1,15 +1,9 @@
 defmodule Kademlia.Node do
   @moduledoc """
   Represents a real-world computer/node
-
-  how keys can be mapped to 6-bit space?
-
-  key will be hashed to 6-bit space..., for now lets keys be a number which is explicitly inside 6-bit space while saving..
-
   """
   alias Kademlia.Node
   @default_k 4
-  @default_bitspace 6
   @default_a 3
   # 1 min
   @timeout :timer.seconds(60)
@@ -73,7 +67,13 @@ defmodule Kademlia.Node do
 
   def handle_call({:get, key}, {_caller_pid, _}, state) do
     Logger.info("NODE #{elem(state.info, 0)}:: GET operation for KEY #{key}", ansi_color: :blue)
-    # TODO: when we make generic, we have to hash it to a number.
+
+    key =
+      if state.bitspace == 160 do
+        Utils.generate_key_id(key)
+      else
+        key
+      end
 
     closest_nodes = lookup(key, state)
 
@@ -100,7 +100,12 @@ defmodule Kademlia.Node do
       ansi_color: :magenta
     )
 
-    # TODO: when we make generic, we have hash it to a number.
+    key =
+      if state.bitspace == 160 do
+        Utils.generate_key_id(key)
+      else
+        key
+      end
 
     closest_nodes = [state.info | lookup(key, state)]
 
@@ -137,11 +142,11 @@ defmodule Kademlia.Node do
   end
 
   def handle_continue(:join_network, state) do
-    # if nodeID is 0, then we dont do anything
-    if elem(state.info, 0) > 0 do
+    if not state.bootstrap? do
       # Add bootstrap node info to the bucket
       pid = Process.whereis(:genesis)
-      state = update_k_buckets({0, pid}, state)
+      bootstrap_node_id = Node.get_id(pid)
+      state = update_k_buckets({bootstrap_node_id, pid}, state)
       lookup(elem(state.info, 0), state)
       {:noreply, state}
     else
@@ -169,7 +174,7 @@ defmodule Kademlia.Node do
       Utils.get_common_prefix(
         elem(state.info, 0),
         node_id,
-        Application.get_env(:kademlia, :bitspace, @default_bitspace)
+        state.bitspace
       )
 
     {bucket, routing_table} =
@@ -242,7 +247,7 @@ defmodule Kademlia.Node do
       end)
     end
     |> Enum.sort_by(fn {node_id, _} ->
-      Bitwise.bxor(node_id, id)
+      Utils.find_distance(node_id, id)
     end)
     |> Enum.slice(0..(state.k - 1))
   end
@@ -273,7 +278,7 @@ defmodule Kademlia.Node do
 
     closest_nodes
     |> Enum.sort_by(fn {node_id, _} ->
-      Bitwise.bxor(node_id, id)
+      Utils.find_distance(node_id, id)
     end)
     |> Enum.slice(0..(state.k - 1))
   end
@@ -330,15 +335,18 @@ defmodule Kademlia.Node do
 
   @spec create_initial_state(Keyword.t()) :: map()
   defp create_initial_state(args) do
-    bitspace = Application.get_env(:kademlia, :bitspace, @default_bitspace)
+    bitspace = System.get_env("kad_bit_space", "160") |> String.to_integer()
     # for now let the bootstrap node has the 0 id.
     node_id =
       cond do
-        Keyword.get(args, :is_bootstrap, false) ->
-          0
-
         not is_nil(Keyword.get(args, :node_id, nil)) ->
           Keyword.get(args, :node_id)
+
+        bitspace == 160 ->
+          Utils.generate_node_id(bitspace)
+
+        Keyword.get(args, :is_bootstrap, false) ->
+          0
 
         true ->
           Utils.generate_node_id(bitspace)
@@ -354,7 +362,13 @@ defmodule Kademlia.Node do
       a: Application.get_env(:kademlia, :a, @default_a),
       info: {node_id, self()},
       hash_map: %{},
-      routing_table: %{}
+      routing_table: %{},
+      bitspace: bitspace,
+      bootstrap?: Keyword.get(args, :is_bootstrap, false)
     }
+  end
+
+  # Randomly generate buckets and call update_k_buckets
+  defp refresh_buckets() do
   end
 end

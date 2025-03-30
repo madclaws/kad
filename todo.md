@@ -1,15 +1,16 @@
 ## v0
 
-- [ ] STORE(k,v)
-- [ ] FIND_VALUE(k)
-- [ ] GET(k)
-- [ ] PUT(k,v)
-- [ ] move to 160 bit space
-## v1
+- [x] STORE(k,v)
+- [x] FIND_VALUE(k)
+- [x] GET(k)
+- [x] PUT(k,v)
+- [x] move to 160 bit space
+- [ ] Showing no:of hops we did total
 
+## v1
+- [ ] Print the routing table tree
 - [ ] bucket refresh
 - [ ] key republishing
 - [ ] caching with ttl
 - [ ] Using alpha for concurrency
-- [ ] Support dynamic leaves and joins
 - [ ] find_node can get k nodes from an ordered bucket (which is closer)
