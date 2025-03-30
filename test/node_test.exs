@@ -8,6 +8,7 @@ defmodule NodeTest do
 
   setup do
     System.put_env("kad_bit_space", "160")
+    System.put_env("kad_k", "4")
   end
 
   test "creating a bootstrapped node" do
