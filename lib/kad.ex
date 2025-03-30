@@ -3,12 +3,10 @@ defmodule Kad do
   Documentation for `Kad`.
   """
 
-  alias Kad.Node
-
   # TODO: docs
   @spec start_node(Keyword.t()) :: any()
   def start_node(args) do
-    DynamicSupervisor.start_child(Kad.DynamicSupervisor, {Node, args})
+    DynamicSupervisor.start_child(Kad.DynamicSupervisor, {Kad.Node, args})
   end
 
   # TODO: docs
@@ -43,15 +41,20 @@ defmodule Kad do
     start_node([])
   end
 
+  def connect_term() do
+    Node.connect(:term1@localhost)
+    Node.connect(:term2@localhost)
+  end
+
   @spec get(atom(), any()) :: any()
   def get(node_id, key) do
     pid = :global.whereis_name(node_id)
-    Node.get(pid, key)
+    Kad.Node.get(pid, key)
   end
 
   @spec put(atom(), any(), any()) :: any()
   def put(node_id, key, val) do
     pid = :global.whereis_name(node_id)
-    Node.put(pid, key, val)
+    Kad.Node.put(pid, key, val)
   end
 end
