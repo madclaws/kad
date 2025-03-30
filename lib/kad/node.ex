@@ -3,7 +3,8 @@ defmodule Kad.Node do
   Represents a real-world computer/node
   """
   alias Kad.Node
-  @default_k 4
+  @default_k "4"
+
   @default_a 3
   # 1 min
   @timeout :timer.seconds(60)
@@ -17,10 +18,22 @@ defmodule Kad.Node do
   def start_link(args \\ []) do
     # only bootstrapped node will be named node, so that other processes
     # can find the bootstrapped node while they are booting up
+    bitspace = System.get_env("kad_bit_space", "160") |> String.to_integer()
+    node_id = get_node_id(args, bitspace)
+
+    node_name =
+      if bitspace != 160 do
+        "node_#{node_id}" |> String.to_atom()
+      else
+        node_id
+      end
+
+    args = Keyword.put(args, :name, node_name)
+
     if is_nil(Keyword.get(args, :is_bootstrap)) do
-      GenServer.start_link(__MODULE__, args, [])
+      GenServer.start_link(__MODULE__, args, name: {:global, node_name})
     else
-      GenServer.start_link(__MODULE__, args, name: :genesis)
+      GenServer.start_link(__MODULE__, args, name: {:global, :genesis})
     end
   end
 
@@ -66,7 +79,7 @@ defmodule Kad.Node do
   end
 
   def handle_call({:get, key}, {_caller_pid, _}, state) do
-    Logger.info("NODE #{elem(state.info, 0)}:: GET operation for KEY #{key}", ansi_color: :blue)
+    Logger.info("NODE #{state.name}:: GET operation for KEY #{key}", ansi_color: :blue)
 
     key =
       if state.bitspace == 160 do
@@ -96,7 +109,7 @@ defmodule Kad.Node do
   end
 
   def handle_call({:put, key, val}, {_caller_pid, _}, state) do
-    Logger.debug("NODE #{elem(state.info, 0)}:: PUT operation for KEY #{key} VAL #{val}",
+    Logger.info("NODE #{state.name}:: PUT operation for KEY #{key} VAL #{val}",
       ansi_color: :magenta
     )
 
@@ -132,7 +145,7 @@ defmodule Kad.Node do
   end
 
   def handle_call({:ping, {send_id, _send_pid}}, _, state) do
-    Logger.info("NODE #{elem(state.info, 0)}:: Got ping from #{send_id}")
+    Logger.info("NODE #{state.name}:: Got ping from #{send_id}")
     {:reply, :pong, state}
   end
 
@@ -144,7 +157,7 @@ defmodule Kad.Node do
   def handle_continue(:join_network, state) do
     if not state.bootstrap? do
       # Add bootstrap node info to the bucket
-      pid = Process.whereis(:genesis)
+      pid = :global.whereis_name(:genesis)
       bootstrap_node_id = Node.get_id(pid)
       state = update_k_buckets({bootstrap_node_id, pid}, state)
       lookup(elem(state.info, 0), state)
@@ -152,6 +165,8 @@ defmodule Kad.Node do
     else
       {:noreply, state}
     end
+
+    {:noreply, state}
   end
 
   def handle_info({:update_k_buckets, closest_nodes}, state) do
@@ -224,7 +239,7 @@ defmodule Kad.Node do
     closest_nodes = get_closest_nodes(id, state) |> Enum.into(MapSet.new())
 
     Logger.debug(
-      "NODE: #{elem(state.info, 0)}: Next round of hopping with closest nodes #{inspect(closest_nodes)}",
+      "NODE: #{state.name}: Next round of hopping with closest nodes #{inspect(closest_nodes)}",
       ansi_color: :green
     )
 
@@ -293,7 +308,7 @@ defmodule Kad.Node do
       end)
 
     if not is_nil(node) do
-      Logger.debug("NODE: #{elem(state.info, 0)}: Node found #{inspect(node)}",
+      Logger.debug("NODE: #{state.name}: Node found #{inspect(node)}",
         ansi_color: :yellow
       )
 
@@ -324,7 +339,7 @@ defmodule Kad.Node do
         closest_nodes = MapSet.union(looked_up_nodes, closest_nodes)
 
         Logger.debug(
-          "NODE: #{elem(state.info, 0)}: Next round of hopping with *NEW* found nodes #{inspect(to_lookup_nodes)}",
+          "NODE: #{state.name}: Next round of hopping with *NEW* found nodes #{inspect(to_lookup_nodes)}",
           ansi_color: :green
         )
 
@@ -352,23 +367,43 @@ defmodule Kad.Node do
           Utils.generate_node_id(bitspace)
       end
 
+    name = if Keyword.get(args, :is_bootstrap), do: :genesis, else: Keyword.get(args, :name)
+
     Logger.info(
-      "Node started with ID: #{node_id}, PID: #{inspect(self())}, bootstrap_node?: #{Keyword.get(args, :is_bootstrap, false)}"
+      "Node started with ID: #{name}, PID: #{inspect(self())}, bootstrap_node?: #{Keyword.get(args, :is_bootstrap, false)}"
     )
 
     %{
-      k: Keyword.get(args, :k, @default_k),
+      k: Keyword.get(args, :k, System.get_env("kad_k", @default_k) |> String.to_integer()),
       # alpha: max concurrency lookups
       a: Application.get_env(:kad, :a, @default_a),
       info: {node_id, self()},
       hash_map: %{},
       routing_table: %{},
       bitspace: bitspace,
-      bootstrap?: Keyword.get(args, :is_bootstrap, false)
+      bootstrap?: Keyword.get(args, :is_bootstrap, false),
+      name: name
     }
   end
 
-  # Randomly generate buckets and call update_k_buckets
-  defp refresh_buckets() do
+  @spec get_node_id(Keyword.t(), non_neg_integer()) :: non_neg_integer() | String.t()
+  defp get_node_id(args, bitspace) do
+    cond do
+      not is_nil(Keyword.get(args, :node_id, nil)) ->
+        Keyword.get(args, :node_id)
+
+      bitspace == 160 ->
+        Utils.generate_node_id(bitspace)
+
+      Keyword.get(args, :is_bootstrap, false) ->
+        0
+
+      true ->
+        Utils.generate_node_id(bitspace)
+    end
   end
+
+  # Randomly generate buckets and call update_k_buckets
+  # defp refresh_buckets() do
+  # end
 end

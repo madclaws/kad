@@ -50,7 +50,7 @@ defmodule NodeTest do
     assert length(state.routing_table["00001"]) == 1
   end
 
-  @tag :k
+  @tag :kk
   test "updating k-buckets, 160-bit space" do
     System.put_env("kad_bit_space", "160")
     Application.put_env(:kad, :k, 1)

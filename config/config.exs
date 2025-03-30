@@ -1,6 +1,6 @@
 import Config
 
 config :logger,
-  level: :info
+  level: :debug
 
 import_config "#{Mix.env()}.exs"
