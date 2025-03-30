@@ -4,7 +4,7 @@ defmodule NodeTest do
   # async false, since we are doing some global mutations with Application.put_env()
   # We might remove in v1
   use ExUnit.Case, async: false
-  alias Kademlia.Node
+  alias Kad.Node
 
   setup do
     System.put_env("kad_bit_space", "160")
@@ -33,7 +33,7 @@ defmodule NodeTest do
   @tag :k
   test "updating k-buckets, 6-bit space" do
     System.put_env("kad_bit_space", "6")
-    Application.put_env(:kademlia, :k, 1)
+    Application.put_env(:kad, :k, 1)
     {:ok, pid} = Node.start_link(is_bootstrap: true, k: 1)
     {:ok, pid2} = Node.start_link(node_id: 2, k: 1)
     # assert :pong == Node.ping(:sys.get_state(pid).info, pid2)
@@ -53,7 +53,7 @@ defmodule NodeTest do
   @tag :k
   test "updating k-buckets, 160-bit space" do
     System.put_env("kad_bit_space", "160")
-    Application.put_env(:kademlia, :k, 1)
+    Application.put_env(:kad, :k, 1)
 
     {:ok, pid} =
       Node.start_link(
@@ -81,7 +81,7 @@ defmodule NodeTest do
   @tag :k1
   test "updating k-buckets with K=2, with 6-bit space" do
     System.put_env("kad_bit_space", "6")
-    Application.put_env(:kademlia, :k, 2)
+    Application.put_env(:kad, :k, 2)
     {:ok, pid} = Node.start_link(is_bootstrap: true)
     {:ok, pid2} = Node.start_link(node_id: 2)
     # assert :pong == Node.ping(:sys.get_state(pid).info, pid2)
@@ -102,7 +102,7 @@ defmodule NodeTest do
 
   @tag :k1
   test "updating k-buckets with K=2, with 160-bit space" do
-    Application.put_env(:kademlia, :k, 2)
+    Application.put_env(:kad, :k, 2)
 
     {:ok, pid} =
       Node.start_link(node_id: "c7c6873f1ca45c8414d85b17f543d1e332a5a50d", is_bootstrap: true)
@@ -245,7 +245,7 @@ defmodule NodeTest do
   @tag :put
   test "put/get for genesis node, 6-bit space" do
     System.put_env("kad_bit_space", "6")
-    Application.put_env(:kademlia, :k, 2)
+    Application.put_env(:kad, :k, 2)
     {:ok, pid} = Node.start_link(is_bootstrap: true)
 
     assert "hello" = Node.put(pid, 20, "hello")
@@ -255,7 +255,7 @@ defmodule NodeTest do
 
   @tag :put
   test "put/get for genesis node, 160-bit space" do
-    Application.put_env(:kademlia, :k, 2)
+    Application.put_env(:kad, :k, 2)
 
     {:ok, pid} =
       Node.start_link(node_id: "c7c6873f1ca45c8414d85b17f543d1e332a5a50d", is_bootstrap: true)
@@ -269,7 +269,7 @@ defmodule NodeTest do
   test "PUT on node_b and query from genesis node" do
     System.put_env("kad_bit_space", "6")
 
-    Application.put_env(:kademlia, :k, 1)
+    Application.put_env(:kad, :k, 1)
     {:ok, pid} = Node.start_link(is_bootstrap: true, k: 1)
 
     {:ok, pid2} = Node.start_link(node_id: 40, k: 1)
@@ -287,7 +287,7 @@ defmodule NodeTest do
 
   @tag :putaa
   test "PUT on node_b and query from genesis node, 160-bit space" do
-    Application.put_env(:kademlia, :k, 1)
+    Application.put_env(:kad, :k, 1)
 
     {:ok, pid} =
       Node.start_link(

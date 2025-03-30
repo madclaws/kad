@@ -1,6 +1,6 @@
-defmodule Kademlia do
+defmodule Kad do
   @moduledoc """
-  Documentation for `Kademlia`.
+  Documentation for `Kad`.
   """
 
   @doc """
@@ -8,7 +8,7 @@ defmodule Kademlia do
 
   ## Examples
 
-      iex> Kademlia.hello()
+      iex> Kad.hello()
       :world
 
   """

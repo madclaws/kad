@@ -1,6 +1,6 @@
-defmodule KademliaTest do
+defmodule KadTest do
   use ExUnit.Case
-  doctest Kademlia
+  doctest Kad
 
   @tag :clos
   test "closest k nodes from the routing table" do

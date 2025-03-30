@@ -1,4 +1,4 @@
-# Kademlia
+# Kad
 
 **A DHT simulator based on Kademlia**
 

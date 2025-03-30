@@ -1,8 +1,8 @@
-defmodule Kademlia.Node do
+defmodule Kad.Node do
   @moduledoc """
   Represents a real-world computer/node
   """
-  alias Kademlia.Node
+  alias Kad.Node
   @default_k 4
   @default_a 3
   # 1 min
@@ -359,7 +359,7 @@ defmodule Kademlia.Node do
     %{
       k: Keyword.get(args, :k, @default_k),
       # alpha: max concurrency lookups
-      a: Application.get_env(:kademlia, :a, @default_a),
+      a: Application.get_env(:kad, :a, @default_a),
       info: {node_id, self()},
       hash_map: %{},
       routing_table: %{},
