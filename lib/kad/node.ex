@@ -69,8 +69,8 @@ defmodule Kad.Node do
     :sys.get_state(pid).info |> elem(0)
   end
 
-  def get_routing_table(pid) do
-    :sys.get_state(pid).routing_table
+  def get_state(pid, arg) do
+    GenServer.call(pid, {:state, arg})
   end
 
   ################
@@ -147,6 +147,23 @@ defmodule Kad.Node do
   def handle_call({:ping, {send_id, _send_pid}}, _, state) do
     Logger.info("NODE #{state.name}:: Got ping from #{send_id}")
     {:reply, :pong, state}
+  end
+
+  def handle_call({:state, arg}, _from, state) do
+    metadata =
+      case arg do
+        :map ->
+          state.hash_map
+
+        :table ->
+          state.routing_table
+
+        _ ->
+          state
+      end
+
+    Logger.info("NODE #{state.name}: #{inspect(metadata)}",  ansi_color: :yellow)
+    {:reply, :ok, state}
   end
 
   def handle_cast({:store, key, value}, state) do

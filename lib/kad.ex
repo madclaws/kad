@@ -2,6 +2,7 @@ defmodule Kad do
   @moduledoc """
   Documentation for `Kad`.
   """
+  require Logger
 
   # TODO: docs
   @spec start_node(Keyword.t()) :: any()
@@ -58,8 +59,23 @@ defmodule Kad do
     Kad.Node.put(pid, key, val)
   end
 
-  # TODO: Add more functions such as
-  # print_routing_table
-  # print_hash_map
+  @spec show_map(atom()) :: :ok
+  def show_map(node_id) do
+    pid = :global.whereis_name(node_id)
+    Kad.Node.get_state(pid, :map)
+  end
+
+  @spec show_routing_table(atom()) :: :ok
+  def show_routing_table(node_id) do
+    pid = :global.whereis_name(node_id)
+    Kad.Node.get_state(pid, :table)
+  end
+
+  @spec state(atom()) :: :ok
+  def state(node_id) do
+    pid = :global.whereis_name(node_id)
+    Kad.Node.get_state(pid, :state)
+  end
+
   # list_nodes ??
 end
