@@ -57,4 +57,9 @@ defmodule Kad do
     pid = :global.whereis_name(node_id)
     Kad.Node.put(pid, key, val)
   end
+
+  # TODO: Add more functions such as
+  # print_routing_table
+  # print_hash_map
+  # list_nodes ??
 end
