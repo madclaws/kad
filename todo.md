@@ -13,3 +13,4 @@
 - [ ] Using alpha for concurrency
 - [ ] find_node can get k nodes from an ordered bucket (which is closer)
 - [ ] Print the routing table as a prefix tree
+- [ ] Simulate sybil attacks
