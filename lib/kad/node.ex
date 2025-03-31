@@ -53,7 +53,6 @@ defmodule Kad.Node do
     GenServer.call(receiver, {:find_node, node_id, sender_info})
   end
 
-  # make sure the put hashes into a number
   @spec find_value(pid(), non_neg_integer()) :: any()
   def find_value(receiver_pid, key) do
     GenServer.call(receiver_pid, {:find_value, key})

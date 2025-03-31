@@ -75,6 +75,10 @@ And we still get the value of 55, even if query from node_2
 
 `Kad.get("d4f86a7c1e9b5f2d3c8a1b7e5f9d4c2a3e6f8b9d", "apple", "fruit")`
 
+### Other functions
+
+- `Kad.start_node([])` - Will add a new node to the network 
+
 ## Tests
 
 `mix test`

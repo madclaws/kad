@@ -37,9 +37,12 @@ defmodule Kad do
     System.put_env("kad_k", "4")
     :observer.start()
     start_node(is_bootstrap: true)
-    start_node([])
-    start_node([])
-    start_node([])
+    # for _i <- 0..20 do
+      start_node([])
+      start_node([])
+      start_node([])
+
+    # end
   end
 
   def connect_term() do
