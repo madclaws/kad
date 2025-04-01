@@ -74,6 +74,7 @@ defmodule Kad.Node do
 
   ################
   def init(args) do
+    # Process.flag(:trap_exit, true)
     {:ok, create_initial_state(args), {:continue, :join_network}}
   end
 
@@ -152,16 +153,19 @@ defmodule Kad.Node do
     metadata =
       case arg do
         :map ->
+          Logger.info("NODE #{state.name}: local hash map", ansi_color: :yellow)
           state.hash_map
 
         :table ->
+          Logger.info("NODE #{state.name}: routing table", ansi_color: :yellow)
           state.routing_table
 
         _ ->
+          Logger.info("NODE #{state.name}: state", ansi_color: :yellow)
           state
       end
 
-    Logger.info("NODE #{state.name}: #{inspect(metadata)}",  ansi_color: :yellow)
+    IO.inspect(metadata, label: state.name)
     {:reply, :ok, state}
   end
 
@@ -190,6 +194,11 @@ defmodule Kad.Node do
       update_k_buckets(node_info, state)
     end)
     |> then(&{:noreply, &1})
+  end
+
+  def handle_info({:EXIT, pid, _}, state) do
+    Logger.info("#{inspect(pid)} down")
+    {:noreply, state}
   end
 
   @doc """
@@ -255,7 +264,7 @@ defmodule Kad.Node do
     closest_nodes = get_closest_nodes(id, state) |> Enum.into(MapSet.new())
 
     Logger.debug(
-      "NODE: #{state.name}: Next round of hopping with closest nodes #{inspect(closest_nodes)}",
+      "NODE: #{state.name}: Next round of hopping with closest nodes #{inspect(Enum.into(closest_nodes, []))}",
       ansi_color: :green
     )
 
@@ -333,10 +342,15 @@ defmodule Kad.Node do
       # Get all the closest nodes of the to_lookup_nodes
       looked_up_nodes =
         Enum.map(to_lookup_nodes, fn close_node_info ->
-          # TODO: Handle the timeout failure
           # We don't want to send a find_node to ourselves
           if elem(close_node_info, 0) != elem(state.info, 0) do
-            Node.find_node(state.info, elem(close_node_info, 1), id)
+            try do
+              Node.find_node(state.info, elem(close_node_info, 1), id)
+            catch
+              _, _ ->
+                IO.inspect(:crash)
+                []
+            end
           else
             []
           end
@@ -355,7 +369,7 @@ defmodule Kad.Node do
         closest_nodes = MapSet.union(looked_up_nodes, closest_nodes)
 
         Logger.debug(
-          "NODE: #{state.name}: Next round of hopping with *NEW* found nodes #{inspect(to_lookup_nodes)}",
+          "NODE: #{state.name}: Next round of hopping with *NEW* found nodes #{inspect(Enum.into(to_lookup_nodes, []))}",
           ansi_color: :green
         )
 

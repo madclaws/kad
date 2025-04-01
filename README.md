@@ -20,11 +20,11 @@ Install [Erlang and Elixir](https://thinkingelixir.com/install-elixir-using-asdf
 
 `git clone git@github.com:madclaws/kad.git`
 
-There are 2 modes of simulation, 
+There are 2 modes of simulation,
 
 ### minikad
 
-Minikad works in 6-bit space, ie the keys and the nodes share same 6-bit space, so keys can be 
+Minikad works in 6-bit space, ie the keys and the nodes share same 6-bit space, so keys can be
 numbers from 0-63, likewise nodes. This mode is good for learning how Kademlia works. Its easier to understand, but beware of conflict in the bit-space.
 
 ### megakad
@@ -45,7 +45,7 @@ From the iex shell
 iex(term1@localhost) Kad.minikad
 ```
 
-OR 
+OR
 
 ```sh
 iex(term1@localhost) Kad.megakad
@@ -61,23 +61,36 @@ In another terminal
 iex(term2@localhost) Kad.connect_term
 
 # This example is running minikad on first terminal
-iex(term2@localhost) Kad.put(:node_50, 55, "apple")
+iex(term2@localhost) Kad.put(50, 55, "apple")
 
-iex(term2@localhost) Kad.get(:node_2, 55) # "apple"
+iex(term2@localhost) Kad.get(2, 55) # "apple"
 ```
 
 See the logs in terminal1 and do the operations in terminal2
 
 In the above example we add the KV pair (55, "apple") in node_50
-And we still get the value of 55, even if query from node_2
+And we still get the value of 55, even if queried from node_2
 
-**NOTE: For megakad the nodeID will be sha1 binary so we don't need to use it as atom while calling any Kad functions, it can be normal string like below,**
+### Playing with minikad
+Assuming the above setup is done.
+
+### Playing with megakad
+coming soon...
+
+For megakad
 
 `Kad.get("d4f86a7c1e9b5f2d3c8a1b7e5f9d4c2a3e6f8b9d", "apple", "fruit")`
 
-### Other functions
+### Available functions
 
-- `Kad.start_node([])` - Will add a new node to the network 
+- `Kad.start_node([])` - Adds a new node to the network
+- `Kad.minikad()` - Starts simulation in minikad mode
+- `Kad.megakad()` - Starts simulation in megakad mode
+- `Kad.get(node_id, k)` - Fetch the value from DHT (node_id can be any node_id)
+- `Kad.put(node_id, k, v)` - Puts the key-value in DHT (node_id can be any node_id)
+- `Kad.show_map(node_id)` - Output the local map of given node
+- `Kad.show_routing_table(node_id)` - Outputs the node's local routing table
+- `Kad.state` - Prints the entire internal state of a node
 
 ## Tests
 

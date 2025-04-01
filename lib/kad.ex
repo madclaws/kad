@@ -24,6 +24,9 @@ defmodule Kad do
     start_node(node_id: 2)
     start_node(node_id: 50)
     start_node(node_id: 60)
+    start_node(node_id: 15)
+    start_node(node_id: 35)
+    start_node(node_id: 10)
   end
 
   # TODO: docs
@@ -38,9 +41,9 @@ defmodule Kad do
     :observer.start()
     start_node(is_bootstrap: true)
     # for _i <- 0..20 do
-      start_node([])
-      start_node([])
-      start_node([])
+    start_node([])
+    start_node([])
+    start_node([])
 
     # end
   end
@@ -52,33 +55,40 @@ defmodule Kad do
 
   @spec get(atom(), any()) :: any()
   def get(node_id, key) do
-    pid = :global.whereis_name(node_id)
+    pid = :global.whereis_name(get_parsed_node_id(node_id))
     Kad.Node.get(pid, key)
   end
 
   @spec put(atom(), any(), any()) :: any()
   def put(node_id, key, val) do
-    pid = :global.whereis_name(node_id)
+    pid = :global.whereis_name(get_parsed_node_id(node_id))
     Kad.Node.put(pid, key, val)
   end
 
   @spec show_map(atom()) :: :ok
   def show_map(node_id) do
-    pid = :global.whereis_name(node_id)
+    pid = :global.whereis_name(get_parsed_node_id(node_id))
     Kad.Node.get_state(pid, :map)
   end
 
   @spec show_routing_table(atom()) :: :ok
   def show_routing_table(node_id) do
-    pid = :global.whereis_name(node_id)
+    pid = :global.whereis_name(get_parsed_node_id(node_id))
     Kad.Node.get_state(pid, :table)
   end
 
   @spec state(atom()) :: :ok
   def state(node_id) do
-    pid = :global.whereis_name(node_id)
+    pid = :global.whereis_name(get_parsed_node_id(node_id))
     Kad.Node.get_state(pid, :state)
   end
 
-  # list_nodes ??
+  @spec get_parsed_node_id(number() | String.t()) :: atom() | String.t()
+  defp get_parsed_node_id(node_id) do
+    if is_number(node_id) do
+      String.to_atom("node_#{node_id}")
+    else
+      node_id
+    end
+  end
 end
