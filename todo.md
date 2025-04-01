@@ -5,7 +5,7 @@
 - [x] PUT(k,v)
 - [x] move to 160 bit space
 - [ ] Showing no:of hops we did total
-- [ ] Handling timeout failures
+- [x] Handling timeout failures
 - [ ] Early exit on GET ops, instead of hopping through all nodes.
 - [ ] bucket refresh
 - [ ] key republishing
