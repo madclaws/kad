@@ -2,13 +2,13 @@
 
 **A DHT simulator based on Kademlia**
 
-Kad is a Distributed Hash Table (DHT) simulator based on [Kademlia protocol](https://en.wikipedia.org/wiki/Kademlia#:~:text=Kademlia%20is%20a%20distributed%20hash,of%20information%20through%20node%20lookups.). The main purpose is to understand Kademlia protocol and as a sandbox for further experiments around DHTs and Kademlia.
+Kad is a Distributed Hash Table (DHT) simulator based on [Kademlia protocol](https://en.wikipedia.org/wiki/Kademlia#:~:text=Kademlia%20is%20a%20distributed%20hash,of%20information%20through%20node%20lookups.). The main purpose is to help understand Kademlia protocol and as a sandbox for further experiments around DHTs and Kademlia.
 
 ## How it works
 
 - Nodes in a network is represented by Erlang processes, which helps us to simulate 1000s of nodes. Each process will behave like a kademlia node with its own routing table and other metadata.
 
-- Instead of RPC calls, we use Process messaging.
+- Instead of RPC calls, we use Erlang Process messaging.
 
 - Process PIDs replaces UDP endpoint
 
