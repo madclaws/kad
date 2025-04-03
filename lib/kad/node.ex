@@ -179,7 +179,7 @@ defmodule Kad.Node do
       pid = :global.whereis_name(:genesis)
       bootstrap_node_id = Node.get_id(pid)
       state = update_k_buckets({bootstrap_node_id, pid}, state)
-      Process.send_after(self(), :lookup, Keyword.get(args, :delay, 1) * 1_000)
+      Process.send_after(self(), :lookup, Keyword.get(args, :delay, 0) * 1_000)
       {:noreply, state}
     else
       {:noreply, state}
