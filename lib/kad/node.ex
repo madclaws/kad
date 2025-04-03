@@ -74,7 +74,6 @@ defmodule Kad.Node do
 
   ################
   def init(args) do
-    # Process.flag(:trap_exit, true)
     {:ok, create_initial_state(args), {:continue, :join_network}}
   end
 
@@ -180,13 +179,11 @@ defmodule Kad.Node do
       pid = :global.whereis_name(:genesis)
       bootstrap_node_id = Node.get_id(pid)
       state = update_k_buckets({bootstrap_node_id, pid}, state)
-      lookup(elem(state.info, 0), state)
+      Process.send_after(self(), :lookup, Enum.random(0..10) * 1_000)
       {:noreply, state}
     else
       {:noreply, state}
     end
-
-    {:noreply, state}
   end
 
   def handle_info({:update_k_buckets, closest_nodes}, state) do
@@ -196,8 +193,8 @@ defmodule Kad.Node do
     |> then(&{:noreply, &1})
   end
 
-  def handle_info({:EXIT, pid, _}, state) do
-    Logger.info("#{inspect(pid)} down")
+  def handle_info(:lookup, state) do
+    lookup(elem(state.info, 0), state)
     {:noreply, state}
   end
 
@@ -348,7 +345,7 @@ defmodule Kad.Node do
               Node.find_node(state.info, elem(close_node_info, 1), id)
             catch
               _, _ ->
-                IO.inspect(:crash)
+                IO.inspect({:crash, state.name})
                 []
             end
           else
