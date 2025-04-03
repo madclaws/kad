@@ -9,7 +9,7 @@ defmodule Kad.Node do
   # 1 min
   @timeout :timer.seconds(60)
 
-  use GenServer
+  use GenServer, restart: :transient
   require Logger
 
   @doc """
@@ -74,7 +74,7 @@ defmodule Kad.Node do
 
   ################
   def init(args) do
-    {:ok, create_initial_state(args), {:continue, :join_network}}
+    {:ok, create_initial_state(args), {:continue, {:join_network, args}}}
   end
 
   def handle_call({:get, key}, {_caller_pid, _}, state) do
@@ -173,13 +173,13 @@ defmodule Kad.Node do
     {:noreply, %{state | hash_map: hash_map}}
   end
 
-  def handle_continue(:join_network, state) do
+  def handle_continue({:join_network, args}, state) do
     if not state.bootstrap? do
       # Add bootstrap node info to the bucket
       pid = :global.whereis_name(:genesis)
       bootstrap_node_id = Node.get_id(pid)
       state = update_k_buckets({bootstrap_node_id, pid}, state)
-      Process.send_after(self(), :lookup, Enum.random(0..10) * 1_000)
+      Process.send_after(self(), :lookup, Keyword.get(args, :delay, 1) * 1_000)
       {:noreply, state}
     else
       {:noreply, state}
@@ -345,7 +345,6 @@ defmodule Kad.Node do
               Node.find_node(state.info, elem(close_node_info, 1), id)
             catch
               _, _ ->
-                IO.inspect({:crash, state.name})
                 []
             end
           else

@@ -4,50 +4,95 @@ defmodule Kad do
   """
   require Logger
 
-  # TODO: docs
+  @doc """
+  Starts a node and auto join into the network
+
+  Recommended to use once inside a simulation
+
+  NOTE: Can pass node_id, if its minikad like `Kad.start_node(node_id: 30)`
+  """
   @spec start_node(Keyword.t()) :: any()
   def start_node(args) do
     DynamicSupervisor.start_child(Kad.DynamicSupervisor, {Kad.Node, args})
   end
 
-  # TODO: docs
+  @doc """
+  Starts the simulation in minikad mode (ie 6 bitspace)
+
+  args - A list of options to tune the sim network
+
+  ## Available args
+
+  `k` - Max k bucket (default 2)
+
+  `observer` - Should run Erlang observer (default true)
+  """
   @spec minikad(Keyword.t()) :: :ok
-  def minikad(_args \\ []) do
+  def minikad(args \\ []) do
     System.put_env(
       "kad_bit_space",
       "6"
     )
 
-    System.put_env("kad_k", "2")
-    :observer.start()
+    nodes = [
+      2,
+      50,
+      60,
+      15,
+      35,
+      10
+    ]
+
+    System.put_env("kad_k", Keyword.get(args, :k, 2) |> to_string())
+
+    if Keyword.get(args, :observer, true) do
+      :observer.start()
+    end
+
     start_node(is_bootstrap: true)
-    start_node(node_id: 2)
-    start_node(node_id: 50)
-    start_node(node_id: 60)
-    start_node(node_id: 15)
-    start_node(node_id: 35)
-    start_node(node_id: 10)
+
+    Enum.reduce(nodes, 1, fn node, delay ->
+      start_node(node_id: node, delay: delay * 2)
+      delay + 1
+    end)
   end
 
-  # TODO: docs
+  @doc """
+  Starts the simulation in megakad mode (ie 160 bitspace)
+
+  args - A list of options to tune the sim network
+
+  Available args
+
+  `k` - Max k bucket (default 4)
+
+  `n` - No: of initial nodes in the network (default 20)
+
+  `observer` - Should run Erlang observer (default true)
+  """
   @spec megakad(Keyword.t()) :: :ok
-  def megakad(_args \\ []) do
+  def megakad(args \\ []) do
     System.put_env(
       "kad_bit_space",
       "160"
     )
 
-    System.put_env("kad_k", "4")
-    :observer.start()
-    start_node(is_bootstrap: true)
-    # for _i <- 0..20 do
-    start_node([])
-    start_node([])
-    start_node([])
+    System.put_env("kad_k", Keyword.get(args, :k, 4) |> to_string())
 
-    # end
+    if Keyword.get(args, :observer, true) do
+      :observer.start()
+    end
+
+    start_node(is_bootstrap: true)
+
+    for i <- 1..Keyword.get(args, :n, 20) do
+      start_node(delay: i * 2)
+    end
   end
 
+  @doc """
+  Connects the 2 terminals with distributed erlang
+  """
   def connect_term() do
     Node.connect(:term1@localhost)
     Node.connect(:term2@localhost)
