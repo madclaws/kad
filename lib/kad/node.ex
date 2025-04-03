@@ -299,10 +299,11 @@ defmodule Kad.Node do
         ) ::
           list({integer(), pid()})
   # if we get the correct node, then we can just return that and stop the lookup process
-  defp do_lookup_nodes(_, closest_nodes, _, _, _, result_node) when is_tuple(result_node) do
+  defp do_lookup_nodes(_, closest_nodes, _, _state, _, result_node) when is_tuple(result_node) do
     # once we get correct node/nil, we update the new nodes we got to
     # know into our k-buckets
     Process.send(self(), {:update_k_buckets, closest_nodes}, [])
+
     [result_node]
   end
 
@@ -312,6 +313,10 @@ defmodule Kad.Node do
     # once we get correct node/nil, we update the new nodes we got to
     # know into our k-buckets
     Process.send(self(), {:update_k_buckets, closest_nodes}, [])
+
+    Logger.debug("NODE: #{state.name}: Total hops => #{Enum.count(closest_nodes)}",
+      ansi_color: :red
+    )
 
     closest_nodes
     |> Enum.sort_by(fn {node_id, _} ->
@@ -330,7 +335,8 @@ defmodule Kad.Node do
       end)
 
     if not is_nil(node) do
-      Logger.debug("NODE: #{state.name}: Node found #{inspect(node)}",
+      Logger.debug(
+        "NODE: #{state.name}: Node found #{inspect(node)} in #{Enum.count(closest_nodes) - Enum.count(to_lookup_nodes)} hops",
         ansi_color: :yellow
       )
 
