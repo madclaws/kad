@@ -60,31 +60,28 @@ defmodule Utils do
           non_neg_integer() | <<_::320>>,
           non_neg_integer()
         ) :: String.t()
-  def get_common_prefix(<<_::320>> = self_node, <<_::320>> = incoming_node, bitspace) do
-    self_node_str =
-      :binary.decode_hex(self_node)
-      |> :binary.decode_unsigned(:little)
-      |> Integer.to_string(2)
-      |> format_bin_id(bitspace)
-
-    incoming_node_str =
-      :binary.decode_hex(incoming_node)
-      |> :binary.decode_unsigned(:little)
-      |> Integer.to_string(2)
-      |> format_bin_id(bitspace)
-
-    calc_common_prefix(self_node_str, incoming_node_str, bitspace)
-  end
-
   def get_common_prefix(self_node, incoming_node, bitspace) do
-    self_node_str = Integer.to_string(self_node, 2) |> format_bin_id(bitspace)
-    incoming_node_str = Integer.to_string(incoming_node, 2) |> format_bin_id(bitspace)
-    calc_common_prefix(self_node_str, incoming_node_str, bitspace)
+    self_node_str = node_to_binstr(self_node, bitspace)
+
+    incoming_node_str = node_to_binstr(incoming_node, bitspace)
+
+    calc_common_prefix(self_node_str, incoming_node_str)
   end
 
-  @spec calc_common_prefix(String.t(), String.t(), non_neg_integer()) :: String.t()
-  defp calc_common_prefix(self_node, incoming_node, bitspace) do
-    Enum.reduce_while(0..(bitspace - 1), "", fn index, bucket ->
+  @spec node_to_binstr(non_neg_integer() | <<_::320>>, non_neg_integer()) :: String.t()
+  def node_to_binstr(<<_::320>> = node, bitspace) do
+    :binary.decode_hex(node)
+    |> :binary.decode_unsigned(:little)
+    |> Integer.to_string(2)
+    |> format_bin_id(bitspace)
+  end
+
+  def node_to_binstr(node, bitspace),
+    do: Integer.to_string(node, 2) |> format_bin_id(bitspace)
+
+  @spec calc_common_prefix(String.t(), String.t()) :: String.t()
+  def calc_common_prefix(self_node, incoming_node) do
+    Enum.reduce_while(0..(String.length(self_node) - 1), "", fn index, bucket ->
       if String.at(self_node, index) == String.at(incoming_node, index) do
         {:cont, bucket <> String.at(self_node, index)}
       else

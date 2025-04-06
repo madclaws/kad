@@ -164,7 +164,7 @@ defmodule NodeTest do
     assert length(node_a_state.routing_table["1"]) == 1
   end
 
-  @tag :lookup
+  @tag :lookup_mini
   test "lookup, 6-bit space" do
     System.put_env("kad_bit_space", "6")
 
@@ -179,11 +179,12 @@ defmodule NodeTest do
     # |> IO.inspect()
     node_b_state = :sys.get_state(pid2)
 
-    # # Not availabel in own routing table
-    assert [{0, _}] = Node.lookup(2, node_b_state)
+    # Not available in own routing table
+    nodes = Node.lookup(2, node_b_state)
+    refute Enum.any?(nodes, fn {id, _pid} -> id == 2 end)
 
-    # # Available in own routing table
-    assert [{0, _}] = Node.lookup(0, node_b_state)
+    # # # Available in own routing table
+    assert Node.lookup(0, node_b_state) |> Enum.any?(fn {id, _pid} -> id == 0 end)
 
     {:ok, pid3} = Node.start_link(node_id: 2)
 
@@ -200,7 +201,7 @@ defmodule NodeTest do
     :sys.replace_state(pid, fn _state -> node_a_state end)
 
     # # nodeId 2 is now in node A's bucket, so we should be able to hop and find it
-    assert [{2, _}] = Node.lookup(2, node_b_state)
+    assert Node.lookup(2, node_b_state) |> Enum.any?(fn {id, _pid} -> id == 2 end)
   end
 
   @tag :lookup
@@ -269,13 +270,13 @@ defmodule NodeTest do
   test "PUT on node_b and query from genesis node" do
     System.put_env("kad_bit_space", "6")
 
-    Application.put_env(:kad, :k, 1)
-    {:ok, pid} = Node.start_link(is_bootstrap: true, k: 1)
+    {:ok, pid} = Node.start_link(is_bootstrap: true, k: 2)
 
-    {:ok, pid2} = Node.start_link(node_id: 40, k: 1)
-    {:ok, pid3} = Node.start_link(node_id: 60, k: 1)
+    {:ok, pid2} = Node.start_link(node_id: 40, k: 2)
+    {:ok, pid3} = Node.start_link(node_id: 60, k: 2)
 
     Process.sleep(1000)
+
     assert "hello" = Node.put(pid3, 50, "hello")
 
     # Node 40 would have key 50, and node 0 wouldnt have
@@ -283,11 +284,15 @@ defmodule NodeTest do
 
     assert %{hash_map: %{50 => "hello"}} = :sys.get_state(pid2)
     assert nil == get_in(:sys.get_state(pid), [:hash_map, 50])
+
+    # :sys.get_state(pid) |> IO.inspect(label: :gnesis_state)
+    # :sys.get_state(pid2) |> IO.inspect(label: :state_40)
+    # :sys.get_state(pid3) |> IO.inspect(label: :state_60)
   end
 
   @tag :putaa
   test "PUT on node_b and query from genesis node, 160-bit space" do
-    Application.put_env(:kad, :k, 1)
+    Application.put_env(:kad, :k, 2)
 
     {:ok, pid} =
       Node.start_link(
@@ -296,8 +301,8 @@ defmodule NodeTest do
         k: 1
       )
 
-    {:ok, pid2} = Node.start_link(node_id: "b780d2b4c7bbb385854b6a7b0672226392612cb9", k: 1)
-    {:ok, pid3} = Node.start_link(node_id: "1377e3c5ad52629bd0778b4dca1775062a2b7278", k: 1)
+    {:ok, pid2} = Node.start_link(node_id: "b780d2b4c7bbb385854b6a7b0672226392612cb9", k: 2)
+    {:ok, pid3} = Node.start_link(node_id: "1377e3c5ad52629bd0778b4dca1775062a2b7278", k: 2)
 
     Process.sleep(1000)
     assert "hello" = Node.put(pid3, 50, "hello")

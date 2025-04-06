@@ -7,6 +7,7 @@
 - [x] Showing no:of hops we did total
 - [x] Handling timeout failures
 - [ ] Early exit on GET ops, instead of hopping through all nodes.
+- [ ] Test the O(log n) node contact out of n nodes in the system
 - [ ] bucket refresh
 - [ ] key republishing
 - [ ] caching with ttl

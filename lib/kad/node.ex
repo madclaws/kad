@@ -119,7 +119,7 @@ defmodule Kad.Node do
         key
       end
 
-    closest_nodes = [state.info | lookup(key, state)]
+    closest_nodes = [state.info | lookup(key, state)] |> Enum.uniq()
 
     Enum.each(closest_nodes, fn {_node_id, pid} ->
       Node.store(pid, key, val)
@@ -164,6 +164,7 @@ defmodule Kad.Node do
           state
       end
 
+    # A needed inspect, dont remove as of now
     IO.inspect(metadata, label: state.name)
     {:reply, :ok, state}
   end
@@ -270,23 +271,30 @@ defmodule Kad.Node do
 
   # will implement the alpha node slice later...
   @spec get_closest_nodes(non_neg_integer(), map()) :: list()
-  defp get_closest_nodes(id, state, sender_node_id \\ nil) do
-    # TODO: can optimize to take from the closer routing tables first as per the paper
-    nodes =
-      Map.values(state.routing_table)
-      |> List.flatten()
+  defp get_closest_nodes(id, state, _sender_node_id \\ nil) do
+    # taking closer nodes from the closest bucket first as per the paper
+    id_binstr = Utils.node_to_binstr(id, state.bitspace)
 
-    if is_nil(sender_node_id) do
-      nodes
-    else
-      Enum.filter(nodes, fn {id, _pid} ->
-        id != sender_node_id
-      end)
-    end
-    |> Enum.sort_by(fn {node_id, _} ->
-      Utils.find_distance(node_id, id)
+    sorted_bucket =
+      Map.keys(state.routing_table)
+      |> Enum.sort_by(
+        fn routing_key ->
+          prefix = Utils.calc_common_prefix(routing_key, id_binstr)
+          String.length(prefix) - 1
+        end,
+        :desc
+      )
+
+    Enum.reduce_while(sorted_bucket, [], fn bucket, closest_nodes ->
+      needed_k = state.k - length(closest_nodes)
+
+      if needed_k == 0 do
+        {:halt, closest_nodes}
+      else
+        {:cont,
+         closest_nodes ++ Enum.slice(Map.get(state.routing_table, bucket), 0..(needed_k - 1))}
+      end
     end)
-    |> Enum.slice(0..(state.k - 1))
   end
 
   @spec do_lookup_nodes(
