@@ -93,7 +93,7 @@ defmodule Kad do
   @doc """
   Connects the 2 terminals with distributed erlang
   """
-  def connect_term() do
+  def connect_term do
     Node.connect(:term1@localhost)
     Node.connect(:term2@localhost)
   end

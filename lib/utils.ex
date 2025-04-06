@@ -1,4 +1,6 @@
 defmodule Utils do
+  @moduledoc false
+
   @doc """
   Generate an non-neg integer between a given range 0 to 2^bitspace
   OR returns a 20byte nodeId, if bitspace is 160

@@ -91,15 +91,7 @@ defmodule Kad.Node do
 
     case Map.get(state.hash_map, key) do
       nil ->
-        Enum.reduce_while(closest_nodes, nil, fn {_node_id, pid}, value ->
-          val = Node.find_value(pid, key)
-
-          if is_nil(val) do
-            {:cont, value}
-          else
-            {:halt, val}
-          end
-        end)
+        search_value(key, closest_nodes)
 
       val ->
         val
@@ -175,14 +167,15 @@ defmodule Kad.Node do
   end
 
   def handle_continue({:join_network, args}, state) do
-    if not state.bootstrap? do
-      # Add bootstrap node info to the bucket
-      pid = :global.whereis_name(:genesis)
-      bootstrap_node_id = Node.get_id(pid)
-      state = update_k_buckets({bootstrap_node_id, pid}, state)
-      Process.send_after(self(), :lookup, Keyword.get(args, :delay, 0) * 1_000)
+    if state.bootstrap? do
       {:noreply, state}
     else
+      pid = :global.whereis_name(:genesis)
+      bootstrap_node_id = Node.get_id(pid)
+      # Add bootstrap node info to the bucket
+      state = update_k_buckets({bootstrap_node_id, pid}, state)
+      # And then lookup thyself with the genesis node
+      Process.send_after(self(), :lookup, Keyword.get(args, :delay, 0) * 1_000)
       {:noreply, state}
     end
   end
@@ -255,7 +248,7 @@ defmodule Kad.Node do
     Map.put(state, :routing_table, routing_table)
   end
 
-  # TODO: not doing any parallel lookup now
+  # NOTE: Not doing any parallel lookup now
   # Returns either the lookedup node or list of k-closest nodes
   @spec lookup(non_neg_integer(), map()) :: [{non_neg_integer(), pid()}]
   def lookup(id, state) do
@@ -342,7 +335,7 @@ defmodule Kad.Node do
         node_id == id
       end)
 
-    if not is_nil(node) do
+    if is_tuple(node) do
       Logger.debug(
         "NODE: #{state.name}: Node found #{inspect(node)} in #{Enum.count(closest_nodes) - Enum.count(to_lookup_nodes)} hops",
         ansi_color: :yellow
@@ -353,17 +346,7 @@ defmodule Kad.Node do
       # Get all the closest nodes of the to_lookup_nodes
       looked_up_nodes =
         Enum.map(to_lookup_nodes, fn close_node_info ->
-          # We don't want to send a find_node to ourselves
-          if elem(close_node_info, 0) != elem(state.info, 0) do
-            try do
-              Node.find_node(state.info, elem(close_node_info, 1), id)
-            catch
-              _, _ ->
-                []
-            end
-          else
-            []
-          end
+          try_find_node(id, close_node_info, state)
         end)
         |> List.flatten()
         |> Enum.into(MapSet.new())
@@ -440,6 +423,34 @@ defmodule Kad.Node do
 
       true ->
         Utils.generate_node_id(bitspace)
+    end
+  end
+
+  @spec search_value(binary() | non_neg_integer(), list()) :: any | nil
+  defp search_value(key, closest_nodes) do
+    Enum.reduce_while(closest_nodes, nil, fn {_node_id, pid}, value ->
+      val = Node.find_value(pid, key)
+
+      if is_nil(val) do
+        {:cont, value}
+      else
+        {:halt, val}
+      end
+    end)
+  end
+
+  @spec try_find_node(binary() | non_neg_integer(), tuple(), map()) :: list()
+  defp try_find_node(id, close_node_info, state) do
+    # We don't want to send a find_node to ourselves
+    if elem(close_node_info, 0) != elem(state.info, 0) do
+      try do
+        Node.find_node(state.info, elem(close_node_info, 1), id)
+      catch
+        _, _ ->
+          []
+      end
+    else
+      []
     end
   end
 

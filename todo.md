@@ -12,6 +12,6 @@
 - [ ] bucket refresh
 - [ ] key republishing
 - [ ] caching with ttl
-- [ ] Using alpha for concurrency
+- [ ] Parallel lookup using alpha for concurrency
 - [ ] Print the routing table as a prefix tree
 - [ ] Simulate sybil attacks
