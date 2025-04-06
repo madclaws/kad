@@ -6,12 +6,12 @@
 - [x] move to 160 bit space
 - [x] Showing no:of hops we did total
 - [x] Handling timeout failures
+- [x] find_node can get k nodes from an ordered bucket (which is closer)
 - [ ] Early exit on GET ops, instead of hopping through all nodes.
 - [ ] Test the O(log n) node contact out of n nodes in the system
 - [ ] bucket refresh
 - [ ] key republishing
 - [ ] caching with ttl
 - [ ] Using alpha for concurrency
-- [ ] find_node can get k nodes from an ordered bucket (which is closer)
 - [ ] Print the routing table as a prefix tree
 - [ ] Simulate sybil attacks
